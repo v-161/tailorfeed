@@ -117,6 +117,7 @@ export default function Profile() {
           <div className="flex items-center gap-4">
             <img
               src={
+                // The URL is correctly constructed here
                 profile.avatar
                   ? `${api.defaults.baseURL}/uploads/avatars/${profile.avatar}`
                   : "https://placehold.co/100x100/A0AEC0/000000?text=Avatar"
