@@ -47,6 +47,23 @@ export default function Profile() {
   const [bio, setBio] = useState("");
   const [avatar, setAvatar] = useState(null);
   const [selectedPost, setSelectedPost] = useState(null);
+  
+  // State for dark/light mode
+  const [theme, setTheme] = useState("light");
+
+  // Effect to apply the 'dark' class to the HTML element
+  useEffect(() => {
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [theme]);
+  
+  // Function to toggle the theme
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
 
   // --- Fetch profile data ---
   const fetchProfile = useCallback(async () => {
@@ -55,13 +72,11 @@ export default function Profile() {
       setError(null);
       let res;
 
-      // If no ID in URL or ID matches current user, fetch own profile
       if (!id || id === String(user?._id)) {
         res = await api.get("/users/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else {
-        // Fetch another user's profile
         res = await api.get(`/users/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -70,7 +85,6 @@ export default function Profile() {
       setProfile(res.data.user);
       setPosts(res.data.posts || []);
       
-      // Check if current user is following this profile
       if (user && res.data.user.followers) {
         setIsFollowing(res.data.user.followers.includes(user._id));
       }
@@ -82,13 +96,13 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
-  }, [id, token, user]); // Added proper dependencies
+  }, [id, token, user]);
 
   useEffect(() => {
     if (user && token) {
       fetchProfile();
     }
-  }, [fetchProfile, user, token, id]); // Added id to dependency array
+  }, [fetchProfile, user, token, id]);
 
   // --- Handle profile update ---
   const handleUpdate = async (e) => {
@@ -110,9 +124,8 @@ export default function Profile() {
       console.log("Update response:", res.data);
       setProfile(res.data.user);
       setEditing(false);
-      setAvatar(null); // Reset avatar state after update
+      setAvatar(null);
       
-      // Re-fetch profile to ensure data is fresh and synced
       fetchProfile(); 
     } catch (err) {
       console.error("Profile update failed:", err.response?.data || err.message);
@@ -120,11 +133,11 @@ export default function Profile() {
     }
   };
 
-  // --- New function to handle canceling the bio edit ---
+  // --- Function to handle canceling the bio edit ---
   const handleCancel = () => {
     setEditing(false);
     setAvatar(null);
-    setBio(profile.bio || ""); // Revert bio to the original profile value
+    setBio(profile.bio || "");
   };
 
   // --- Follow/Unfollow ---
@@ -144,10 +157,8 @@ export default function Profile() {
         );
       }
       
-      // Toggle the follow state immediately for better UX
       setIsFollowing(!isFollowing);
       
-      // Then refetch to get updated follower counts
       fetchProfile();
     } catch (err) {
       console.error("Follow error:", err.response?.data || err.message);
@@ -181,6 +192,14 @@ export default function Profile() {
     <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-white">
       <Navbar />
       <div className="max-w-3xl mx-auto py-6 px-4">
+        {/* Theme toggle button */}
+        <button 
+          onClick={toggleTheme}
+          className="px-4 py-2 mb-4 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white"
+        >
+          Toggle {theme === "dark" ? "Light" : "Dark"} Mode
+        </button>
+
         {/* Profile Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
@@ -260,11 +279,11 @@ export default function Profile() {
 
         {/* Edit Profile Modal */}
         {editing && (
-          // Fixed z-index issue by using a high value
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" style={{ zIndex: 1000 }}>
+          // Fixed z-index issue and added dark mode color
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]">
             <form
               onSubmit={handleUpdate}
-              className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96"
+              className="bg-white dark:bg-[#111] p-6 rounded-lg shadow-lg w-96"
             >
               <h2 className="text-xl font-bold mb-4 text-black dark:text-white">
                 Edit Profile
@@ -273,7 +292,7 @@ export default function Profile() {
               <textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                className="w-full p-2 rounded border dark:bg-gray-700 dark:text-white"
+                className="w-full p-2 rounded border border-gray-300 dark:bg-gray-700 dark:text-white"
                 rows="4"
               />
               <label className="block mt-4 mb-2 text-black dark:text-gray-200">
@@ -288,7 +307,7 @@ export default function Profile() {
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={handleCancel} // Using the new dedicated function
+                  onClick={handleCancel}
                   className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
                 >
                   Cancel
@@ -312,4 +331,5 @@ export default function Profile() {
       </div>
     </div>
   );
-                  }
+    }
+          
