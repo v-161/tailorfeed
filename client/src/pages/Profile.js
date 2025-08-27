@@ -48,23 +48,6 @@ export default function Profile() {
   const [avatar, setAvatar] = useState(null);
   const [selectedPost, setSelectedPost] = useState(null);
   
-  // State for dark/light mode
-  const [theme, setTheme] = useState("light");
-
-  // Effect to apply the 'dark' class to the HTML element
-  useEffect(() => {
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [theme]);
-  
-  // Function to toggle the theme
-  const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
-  };
-
   // --- Fetch profile data ---
   const fetchProfile = useCallback(async () => {
     try {
@@ -168,38 +151,30 @@ export default function Profile() {
 
   // --- UI states ---
   if (loading) return (
-    <div className="min-h-screen bg-gray-100 dark:bg-black">
+    <div className="min-h-screen bg-gray-100">
       <Navbar />
       <p className="text-center mt-10">Loading...</p>
     </div>
   );
   
   if (error) return (
-    <div className="min-h-screen bg-gray-100 dark:bg-black">
+    <div className="min-h-screen bg-gray-100">
       <Navbar />
       <p className="text-center mt-10 text-red-500">{error}</p>
     </div>
   );
   
   if (!profile) return (
-    <div className="min-h-screen bg-gray-100 dark:bg-black">
+    <div className="min-h-screen bg-gray-100">
       <Navbar />
       <p className="text-center mt-10">No profile found.</p>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-white">
+    <div className="min-h-screen bg-gray-100 text-gray-900">
       <Navbar />
       <div className="max-w-3xl mx-auto py-6 px-4">
-        {/* Theme toggle button */}
-        <button 
-          onClick={toggleTheme}
-          className="px-4 py-2 mb-4 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white"
-        >
-          Toggle {theme === "dark" ? "Light" : "Dark"} Mode
-        </button>
-
         {/* Profile Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
@@ -214,7 +189,7 @@ export default function Profile() {
             />
             <div>
               <h1 className="text-2xl font-bold">{profile.username}</h1>
-              <p className="text-gray-600 dark:text-gray-300">{profile.email}</p>
+              <p className="text-gray-600">{profile.email}</p>
               <p className="mt-2">{profile.bio || "No bio yet."}</p>
               {profile._id === user._id && (
                 <button
@@ -244,7 +219,7 @@ export default function Profile() {
         {/* Posts Swiper */}
         <h3 className="text-xl font-semibold mb-4">Posts</h3>
         {posts.length === 0 ? (
-          <p className="text-center text-gray-600 dark:text-gray-400">
+          <p className="text-center text-gray-600">
             No posts found for this user.
           </p>
         ) : (
@@ -279,23 +254,22 @@ export default function Profile() {
 
         {/* Edit Profile Modal */}
         {editing && (
-          // Fixed z-index issue and added dark mode color
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]">
             <form
               onSubmit={handleUpdate}
-              className="bg-white dark:bg-[#111] p-6 rounded-lg shadow-lg w-96"
+              className="bg-white p-6 rounded-lg shadow-lg w-96"
             >
-              <h2 className="text-xl font-bold mb-4 text-black dark:text-white">
+              <h2 className="text-xl font-bold mb-4 text-black">
                 Edit Profile
               </h2>
-              <label className="block mb-2 text-black dark:text-gray-200">Bio</label>
+              <label className="block mb-2 text-black">Bio</label>
               <textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                className="w-full p-2 rounded border border-gray-300 dark:bg-gray-700 dark:text-white"
+                className="w-full p-2 rounded border border-gray-300"
                 rows="4"
               />
-              <label className="block mt-4 mb-2 text-black dark:text-gray-200">
+              <label className="block mt-4 mb-2 text-black">
                 Avatar
               </label>
               <input
@@ -331,5 +305,4 @@ export default function Profile() {
       </div>
     </div>
   );
-    }
-          
+}
