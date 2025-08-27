@@ -1,5 +1,6 @@
 import { useState, useContext } from "react";
-import axios from "axios";
+// Import your centralized API instance
+import api from "../api";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar"; // Import the Navbar component
@@ -7,10 +8,11 @@ import Navbar from "../components/Navbar"; // Import the Navbar component
 export default function UploadPost() {
   // Use context to get the user's authentication token
   const { token } = useContext(AuthContext);
-  // State for the selected media files, caption, and tags
+  // State for the selected media files, caption, tags, and message
   const [media, setMedia] = useState([]);
   const [caption, setCaption] = useState("");
   const [tags, setTags] = useState("");
+  const [message, setMessage] = useState("");
   // Hook for programmatic navigation
   const navigate = useNavigate();
 
@@ -25,8 +27,8 @@ export default function UploadPost() {
 
     // Check if any files have been selected
     if (!media.length) {
-      // Use a custom message box instead of alert()
-      alert("Please select at least one file");
+      // Use a custom message instead of alert()
+      setMessage("Please select at least one file");
       return;
     }
 
@@ -41,8 +43,8 @@ export default function UploadPost() {
       formData.append("caption", caption);
       formData.append("tags", tags);
 
-      // Make a POST request to the upload endpoint with the FormData
-      await axios.post("http://localhost:10000/posts/upload", formData, {
+      // Make a POST request to the upload endpoint with the FormData using the 'api' instance
+      await api.post("/posts/upload", formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
@@ -50,11 +52,11 @@ export default function UploadPost() {
       });
 
       // Show success message and navigate
-      alert("Post uploaded successfully");
-      navigate("/");
+      setMessage("Post uploaded successfully!");
+      setTimeout(() => navigate("/"), 2000); // Redirect after 2 seconds
     } catch (err) {
       // Handle upload failure
-      alert(err.response?.data?.message || "Upload failed");
+      setMessage(err.response?.data?.message || "Upload failed");
     }
   };
 
@@ -101,6 +103,11 @@ export default function UploadPost() {
           <button className="w-full bg-green-500 hover:bg-green-600 text-white p-2 rounded">
             Upload
           </button>
+          {message && (
+            <p className="mt-3 text-center text-sm text-gray-700 dark:text-gray-300">
+              {message}
+            </p>
+          )}
         </form>
       </div>
     </div>
