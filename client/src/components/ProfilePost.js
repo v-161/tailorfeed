@@ -24,7 +24,7 @@ export default function ProfilePost({ post }) {
         className="relative w-full h-48 bg-black flex items-center justify-center cursor-pointer"
       >
         <img
-          src={`http://localhost:5000${post.media[currentIndex].url}`}
+          src={`http://localhost:10000${post.media[currentIndex].url}`}
           alt="post"
           className="max-w-full max-h-full object-contain"
         />
@@ -48,7 +48,7 @@ export default function ProfilePost({ post }) {
 
             <div className="flex items-center justify-center relative">
               <img
-                src={`http://localhost:5000${post.media[currentIndex].url}`}
+                src={`http://localhost:10000${post.media[currentIndex].url}`}
                 alt="post"
                 className="max-w-full max-h-[500px] object-contain"
               />
