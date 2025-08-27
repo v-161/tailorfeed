@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState, useCallback } from "react";
-import api from "../api"; // ✅ Use the central API instance
+import api from "../api"; 
 import { AuthContext } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 import { Link } from "react-router-dom";
@@ -11,7 +11,7 @@ export default function Explore() {
   // Memoize the fetchExplore function using useCallback to prevent infinite loops
   const fetchExplore = useCallback(async () => {
     try {
-      // ✅ Use api.get instead of axios.get with hardcoded URL
+      // Use api.get instead of axios.get with hardcoded URL
       const res = await api.get("/posts/explore", {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -39,7 +39,7 @@ export default function Explore() {
             <Link to={`/profile/${post.user._id}`} key={post._id}>
               {post.imageUrl && (
                 <img
-                  // ✅ Use a relative path instead of a hardcoded URL
+                  // Use a relative path instead of a hardcoded URL
                   src={`${post.imageUrl}`}
                   alt="Explore"
                   className="w-full h-40 object-cover hover:opacity-80 transition"
