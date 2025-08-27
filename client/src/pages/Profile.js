@@ -189,7 +189,8 @@ export default function Profile() {
 
         {/* Edit Profile Modal */}
         {editing && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          // FIX: Add z-index-60 to ensure the modal is on top
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
             <form
               onSubmit={handleUpdate}
               className="bg-white dark:bg-[#111] p-6 rounded-lg shadow-lg w-96"
@@ -216,12 +217,14 @@ export default function Profile() {
                 <button
                   type="button"
                   onClick={() => setEditing(false)}
-                  className="px-4 py-2 bg-gray-400 rounded-lg"
+                  // FIX: Use Tailwind classes for a better look
+                  className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
+                  // FIX: Use Tailwind classes for a better look
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                   Save
