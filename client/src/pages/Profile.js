@@ -82,7 +82,7 @@ export default function Profile() {
       });
 
       console.log("Update response:", res.data);
-      setProfile(res.data.user); // ✅ FIXED: refresh with updated user
+      setProfile(res.data.user); // FIXED: refresh with updated user
       setEditing(false);
     } catch (err) {
       console.error("Profile update failed:", err.response?.data || err.message);
