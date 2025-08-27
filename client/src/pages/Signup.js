@@ -23,7 +23,7 @@ export default function Signup() {
     }
 
     try {
-      // ✅ Use api.post instead of axios.post with hardcoded URL
+      // Use api.post instead of axios.post with hardcoded URL
       await api.post("/auth/register", {
         username,
         email,
