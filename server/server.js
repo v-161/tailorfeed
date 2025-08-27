@@ -27,7 +27,7 @@ app.use("/users", userRoutes);
 // Connect to MongoDB
 mongoose
   .connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log("✅ MongoDB connected"))
+  .then(() => console.log("MongoDB connected ✅"))
   .catch((err) => console.error(err));
 
 // Change the port to 10000 to match the client's configuration
