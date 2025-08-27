@@ -14,12 +14,12 @@ export default function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      // ✅ Use api.post instead of axios.post with hardcoded URL
+      //  Use api.post instead of axios.post with hardcoded URL
       const res = await api.post("/auth/login", { email, password });
       login(res.data.user, res.data.token);
       navigate("/");
     } catch (err) {
-      // ✅ Use state to show a custom error message instead of alert
+      //  Use state to show a custom error message instead of alert
       setErrorMessage(err.response?.data?.message || "Login failed");
     }
   };
