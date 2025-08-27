@@ -1,6 +1,6 @@
 import { useState, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
-import axios from "axios";
+import api from "../api"; // ✅ Use the central API instance
 import { Link, useNavigate } from "react-router-dom";
 
 export default function Login() {
@@ -8,16 +8,19 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(""); // State for error message
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("http://localhost:5000/auth/login", { email, password });
+      // ✅ Use api.post instead of axios.post with hardcoded URL
+      const res = await api.post("/auth/login", { email, password });
       login(res.data.user, res.data.token);
       navigate("/");
     } catch (err) {
-      alert(err.response?.data?.message || "Login failed");
+      // ✅ Use state to show a custom error message instead of alert
+      setErrorMessage(err.response?.data?.message || "Login failed");
     }
   };
 
@@ -73,6 +76,24 @@ export default function Login() {
           </Link>
         </div>
       </form>
+
+      {/* Custom Error Modal */}
+      {errorMessage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white dark:bg-[#111] p-6 rounded-lg shadow-lg">
+            <h2 className="text-xl font-bold mb-4 text-black dark:text-white">Error</h2>
+            <p className="mb-4 text-gray-800 dark:text-gray-200">{errorMessage}</p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setErrorMessage("")}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
