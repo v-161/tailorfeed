@@ -52,27 +52,29 @@ export default function Profile() {
   const fetchProfile = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       let res;
 
-      if (id && id === String(user._id)) {
+      // If no ID in URL or ID matches current user, fetch own profile
+      if (!id || id === String(user?._id)) {
         res = await api.get("/users/profile", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } else if (id) {
-        res = await api.get(`/users/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else {
-        res = await api.get("/users/profile", {
+        // Fetch another user's profile
+        res = await api.get(`/users/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
       }
 
       setProfile(res.data.user);
       setPosts(res.data.posts || []);
-      if (user) {
+      
+      // Check if current user is following this profile
+      if (user && res.data.user.followers) {
         setIsFollowing(res.data.user.followers.includes(user._id));
       }
+      
       setBio(res.data.user.bio || "");
     } catch (err) {
       console.error("Profile fetch error:", err.response?.data || err.message);
@@ -80,13 +82,13 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
-  }, [id, token, user]);
+  }, [id, token, user]); // Added proper dependencies
 
   useEffect(() => {
-    if (user) {
+    if (user && token) {
       fetchProfile();
     }
-  }, [fetchProfile, user, id]);
+  }, [fetchProfile, user, token, id]); // Added id to dependency array
 
   // --- Handle profile update ---
   const handleUpdate = async (e) => {
@@ -108,29 +110,62 @@ export default function Profile() {
       console.log("Update response:", res.data);
       setProfile(res.data.user);
       setEditing(false);
+      setAvatar(null); // Reset avatar state after update
     } catch (err) {
       console.error("Profile update failed:", err.response?.data || err.message);
+      setError("Profile update failed. Please try again.");
     }
   };
 
   // --- Follow/Unfollow ---
   const handleFollow = async () => {
     try {
-      await api.post(
-        `/users/${id}/follow`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      if (isFollowing) {
+        await api.post(
+          `/users/${id}/unfollow`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } else {
+        await api.post(
+          `/users/${id}/follow`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+      
+      // Toggle the follow state immediately for better UX
+      setIsFollowing(!isFollowing);
+      
+      // Then refetch to get updated follower counts
       fetchProfile();
     } catch (err) {
       console.error("Follow error:", err.response?.data || err.message);
+      setError("Failed to update follow status.");
     }
   };
 
   // --- UI states ---
-  if (loading) return <p className="text-center mt-10">Loading...</p>;
-  if (error) return <p className="text-center mt-10 text-red-500">{error}</p>;
-  if (!profile) return <p className="text-center mt-10">No profile found.</p>;
+  if (loading) return (
+    <div className="min-h-screen bg-gray-100 dark:bg-black">
+      <Navbar />
+      <p className="text-center mt-10">Loading...</p>
+    </div>
+  );
+  
+  if (error) return (
+    <div className="min-h-screen bg-gray-100 dark:bg-black">
+      <Navbar />
+      <p className="text-center mt-10 text-red-500">{error}</p>
+    </div>
+  );
+  
+  if (!profile) return (
+    <div className="min-h-screen bg-gray-100 dark:bg-black">
+      <Navbar />
+      <p className="text-center mt-10">No profile found.</p>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-white">
@@ -166,16 +201,16 @@ export default function Profile() {
             <button
               onClick={handleFollow}
               className={`px-4 py-2 rounded ${
-                isFollowing ? "bg-red-500" : "bg-blue-500"
-              } text-white`}
+                isFollowing ? "bg-red-500 hover:bg-red-600" : "bg-blue-500 hover:bg-blue-600"
+              } text-white transition-colors`}
             >
               {isFollowing ? "Unfollow" : "Follow"}
             </button>
           )}
         </div>
 
-        <p className="mb-2">Followers: {profile.followers.length}</p>
-        <p className="mb-6">Following: {profile.following.length}</p>
+        <p className="mb-2">Followers: {profile.followers?.length || 0}</p>
+        <p className="mb-6">Following: {profile.following?.length || 0}</p>
 
         {/* Posts Swiper */}
         <h3 className="text-xl font-semibold mb-4">Posts</h3>
@@ -203,8 +238,10 @@ export default function Profile() {
               }}
             >
               {posts.map((post) => (
-                <SwiperSlide key={post._id} onClick={() => setSelectedPost(post)}>
-                  <ProfilePost post={post} />
+                <SwiperSlide key={post._id}>
+                  <div onClick={() => setSelectedPost(post)} className="cursor-pointer">
+                    <ProfilePost post={post} />
+                  </div>
                 </SwiperSlide>
               ))}
             </Swiper>
@@ -213,10 +250,10 @@ export default function Profile() {
 
         {/* Edit Profile Modal */}
         {editing && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <form
               onSubmit={handleUpdate}
-              className="bg-white dark:bg-[#111] p-6 rounded-lg shadow-lg w-96"
+              className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96"
             >
               <h2 className="text-xl font-bold mb-4 text-black dark:text-white">
                 Edit Profile
@@ -225,7 +262,8 @@ export default function Profile() {
               <textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                className="w-full p-2 rounded border dark:bg-black dark:text-white"
+                className="w-full p-2 rounded border dark:bg-gray-700 dark:text-white"
+                rows="4"
               />
               <label className="block mt-4 mb-2 text-black dark:text-gray-200">
                 Avatar
@@ -234,12 +272,16 @@ export default function Profile() {
                 type="file"
                 accept="image/*"
                 onChange={(e) => setAvatar(e.target.files[0])}
-                className="mb-4"
+                className="mb-4 w-full"
               />
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setEditing(false)}
+                  onClick={() => {
+                    setEditing(false);
+                    setAvatar(null);
+                    setBio(profile.bio || "");
+                  }}
                   className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
                 >
                   Cancel
