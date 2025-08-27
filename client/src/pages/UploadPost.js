@@ -42,7 +42,7 @@ export default function UploadPost() {
       formData.append("tags", tags);
 
       // Make a POST request to the upload endpoint with the FormData
-      await axios.post("http://localhost:5000/posts/upload", formData, {
+      await axios.post("http://localhost:10000/posts/upload", formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
