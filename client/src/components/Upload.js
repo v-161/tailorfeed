@@ -1,5 +1,6 @@
 import React, { useState, useContext } from "react";
-import axios from "axios";
+// Import the centralized API instance
+import api from "../api";
 import { AuthContext } from "../context/AuthContext"; // Import AuthContext to access the token
 
 export default function Upload({ onUploadSuccess }) {
@@ -9,6 +10,8 @@ export default function Upload({ onUploadSuccess }) {
   const [caption, setCaption] = useState("");
   // Use a state variable for the tags
   const [tags, setTags] = useState("");
+  // Use a state variable for showing messages to the user
+  const [message, setMessage] = useState("");
 
   // Get the token from the AuthContext to use for authentication
   const { user, token } = useContext(AuthContext);
@@ -21,17 +24,16 @@ export default function Upload({ onUploadSuccess }) {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Simple validation to ensure files are selected
     if (mediaFiles.length === 0) {
-      // In a real app, you would use a modal or a non-blocking UI message
-      console.error("Please select files to upload.");
+      setMessage("Please select files to upload.");
       return;
     }
-    
+
     // Check if the user and token exist before attempting the upload
     if (!user || !token) {
-      console.error("You must be logged in to upload content.");
+      setMessage("You must be logged in to upload content.");
       return;
     }
 
@@ -39,27 +41,28 @@ export default function Upload({ onUploadSuccess }) {
     const formData = new FormData();
     mediaFiles.forEach((file) => formData.append("media", file));
     formData.append("caption", caption);
-    formData.append("tags", tags.split(",").map((t) => t.trim()));
+    formData.append("tags", tags);
 
     try {
-      // Make the authenticated POST request using axios
-      await axios.post("http://localhost:10000/posts/upload", formData, {
+      // Make the authenticated POST request using the shared 'api' instance
+      await api.post("/posts/upload", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${token}`, // Add the Authorization header
         },
       });
-      
+
       // Reset the form fields on a successful upload
       setMediaFiles([]);
       setCaption("");
       setTags("");
-      
+      setMessage("Upload successful!");
+
       // Call the success callback to refresh the feed or perform other actions
       if (onUploadSuccess) onUploadSuccess();
     } catch (err) {
       console.error("Upload failed:", err);
-      // You could also set a state variable here to show an error message to the user
+      setMessage(err.response?.data?.message || "Upload failed");
     }
   };
 
@@ -89,6 +92,11 @@ export default function Upload({ onUploadSuccess }) {
       <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
         Upload
       </button>
+      {message && (
+        <p className="mt-2 text-sm text-center text-gray-700 dark:text-gray-300">
+          {message}
+        </p>
+      )}
     </form>
   );
 }
