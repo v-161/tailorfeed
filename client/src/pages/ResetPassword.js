@@ -1,5 +1,6 @@
 import { useState } from "react";
-import axios from "axios";
+// Import your centralized API instance
+import api from "../api";
 import { useParams, useNavigate } from "react-router-dom";
 
 export default function ResetPassword() {
@@ -16,9 +17,9 @@ export default function ResetPassword() {
   const handleReset = async (e) => {
     e.preventDefault();
     try {
-      // Make a POST request to the reset password endpoint with the new password
-      const res = await axios.post(
-        `http://localhost:10000/auth/reset-password/${token}`,
+      // Make a POST request using the imported 'api' instance
+      const res = await api.post(
+        `/auth/reset-password/${token}`,
         { password }
       );
       // Set the success message from the API response
