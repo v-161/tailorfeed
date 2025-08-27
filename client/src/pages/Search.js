@@ -1,5 +1,6 @@
 import { useContext, useState } from "react";
-import axios from "axios";
+// Import your centralized API instance
+import api from "../api";
 import { AuthContext } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 import { Link } from "react-router-dom";
@@ -15,8 +16,8 @@ export default function Search() {
     e.preventDefault();
     if (!query) return; // Prevent empty searches
     try {
-      // Make a GET request to the search endpoint
-      const res = await axios.get(`http://localhost:10000/users/search/${query}`, {
+      // Make a GET request using the imported 'api' instance
+      const res = await api.get(`/users/search/${query}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       // Set the search results from the API response
