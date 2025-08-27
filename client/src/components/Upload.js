@@ -43,7 +43,7 @@ export default function Upload({ onUploadSuccess }) {
 
     try {
       // Make the authenticated POST request using axios
-      await axios.post("http://localhost:5000/posts/upload", formData, {
+      await axios.post("http://localhost:10000/posts/upload", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${token}`, // Add the Authorization header
