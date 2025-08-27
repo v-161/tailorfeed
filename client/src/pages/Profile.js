@@ -118,7 +118,7 @@ export default function Profile() {
             <img
               src={
                 profile.avatar
-                  ? profile.avatar
+                  ? `${api.defaults.baseURL}/uploads/avatars/${profile.avatar}`
                   : "https://placehold.co/100x100/A0AEC0/000000?text=Avatar"
               }
               alt="avatar"
