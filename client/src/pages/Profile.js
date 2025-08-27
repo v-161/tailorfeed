@@ -9,6 +9,32 @@ import "swiper/css";
 import "swiper/css/navigation";
 import { Navigation } from "swiper/modules";
 
+// New PostModal component for displaying enlarged image
+const PostModal = ({ post, onClose }) => {
+  if (!post) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+      <div className="relative p-4 rounded-lg shadow-lg max-w-2xl max-h-full">
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 text-white text-2xl font-bold"
+        >
+          &times;
+        </button>
+        <img
+          src={`${api.defaults.baseURL}/uploads/posts/${post.image}`}
+          alt="Post"
+          className="max-w-full max-h-[80vh] object-contain rounded"
+        />
+        <div className="mt-4 text-white text-center">
+          <p className="text-xl font-bold">{post.caption}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function Profile() {
   const { id } = useParams();
   const { user, token } = useContext(AuthContext);
@@ -20,6 +46,7 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [bio, setBio] = useState("");
   const [avatar, setAvatar] = useState(null);
+  const [selectedPost, setSelectedPost] = useState(null);
 
   // --- Fetch profile data ---
   const fetchProfile = useCallback(async () => {
@@ -28,17 +55,14 @@ export default function Profile() {
       let res;
 
       if (id && id === String(user._id)) {
-        // Own profile
         res = await api.get("/users/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else if (id) {
-        // Other user's profile
         res = await api.get(`/users/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else {
-        // Fallback → own profile
         res = await api.get("/users/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -82,7 +106,7 @@ export default function Profile() {
       });
 
       console.log("Update response:", res.data);
-      setProfile(res.data.user); // FIXED: refresh with updated user
+      setProfile(res.data.user);
       setEditing(false);
     } catch (err) {
       console.error("Profile update failed:", err.response?.data || err.message);
@@ -117,7 +141,6 @@ export default function Profile() {
           <div className="flex items-center gap-4">
             <img
               src={
-                // The URL is correctly constructed here
                 profile.avatar
                   ? `${api.defaults.baseURL}/uploads/avatars/${profile.avatar}`
                   : "https://placehold.co/100x100/A0AEC0/000000?text=Avatar"
@@ -180,7 +203,7 @@ export default function Profile() {
               }}
             >
               {posts.map((post) => (
-                <SwiperSlide key={post._id}>
+                <SwiperSlide key={post._id} onClick={() => setSelectedPost(post)}>
                   <ProfilePost post={post} />
                 </SwiperSlide>
               ))}
@@ -190,7 +213,6 @@ export default function Profile() {
 
         {/* Edit Profile Modal */}
         {editing && (
-          // FIX: Add z-index-60 to ensure the modal is on top
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
             <form
               onSubmit={handleUpdate}
@@ -218,14 +240,12 @@ export default function Profile() {
                 <button
                   type="button"
                   onClick={() => setEditing(false)}
-                  // FIX: Use Tailwind classes for a better look
                   className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  // FIX: Use Tailwind classes for a better look
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                   Save
@@ -234,6 +254,12 @@ export default function Profile() {
             </form>
           </div>
         )}
+
+        {/* Post Modal for enlarged image view */}
+        <PostModal
+          post={selectedPost}
+          onClose={() => setSelectedPost(null)}
+        />
       </div>
     </div>
   );
