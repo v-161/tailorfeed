@@ -12,7 +12,6 @@ import { Navigation } from "swiper/modules";
 export default function Profile() {
   const { id } = useParams();
   const { user, token } = useContext(AuthContext);
-
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
