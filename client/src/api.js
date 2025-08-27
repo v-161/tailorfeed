@@ -1,10 +1,11 @@
 import axios from "axios";
 
-// Base URL comes from environment variable (Netlify sets REACT_APP_API_BASE)
-const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:10000";
+// This URL points directly to your deployed backend on Render.
+const API_BASE = "https://tailorfeed-backend.onrender.com";
 
 const api = axios.create({
   baseURL: API_BASE,
+  withCredentials: true,
 });
 
 export default api;
