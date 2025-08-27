@@ -1,5 +1,5 @@
 import { useState } from "react";
-import axios from "axios";
+import api from "../api";
 import { Link, useNavigate } from "react-router-dom";
 
 export default function Signup() {
@@ -9,26 +9,38 @@ export default function Signup() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [modalMessage, setModalMessage] = useState(""); // State for modal message
+  const [modalType, setModalType] = useState(""); // 'success' or 'error'
   const navigate = useNavigate();
 
   const handleSignup = async (e) => {
     e.preventDefault();
 
     if (password !== confirmPassword) {
-      alert("Passwords do not match");
+      setModalMessage("Passwords do not match");
+      setModalType("error");
       return;
     }
 
     try {
-      await axios.post("http://localhost:5000/auth/register", {
+      // ✅ Use api.post instead of axios.post with hardcoded URL
+      await api.post("/auth/register", {
         username,
         email,
-        password
+        password,
       });
-      alert("Account created successfully");
-      navigate("/login");
+      setModalMessage("Account created successfully");
+      setModalType("success");
     } catch (err) {
-      alert(err.response?.data?.message || "Signup failed");
+      setModalMessage(err.response?.data?.message || "Signup failed");
+      setModalType("error");
+    }
+  };
+
+  const closeModal = () => {
+    setModalMessage("");
+    if (modalType === "success") {
+      navigate("/login");
     }
   };
 
@@ -113,6 +125,26 @@ export default function Signup() {
           </Link>
         </p>
       </form>
+
+      {/* Custom Modal */}
+      {modalMessage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white dark:bg-[#111] p-6 rounded-lg shadow-lg">
+            <h2 className={`text-xl font-bold mb-4 ${modalType === 'error' ? 'text-red-500' : 'text-green-500'}`}>
+              {modalType === 'error' ? 'Error' : 'Success'}
+            </h2>
+            <p className="mb-4 text-gray-800 dark:text-gray-200">{modalMessage}</p>
+            <div className="flex justify-end">
+              <button
+                onClick={closeModal}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
