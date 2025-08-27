@@ -12,7 +12,7 @@ export default function PostCard({
   commentInputs,
   setCommentInputs,
 }) {
-  // ✅ Add safe check
+
   if (!post) return null;
 
   const hasMedia = post && post.media && post.media.length > 0;
