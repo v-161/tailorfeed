@@ -1,6 +1,6 @@
 import { useState, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
-import api from "../api"; // ✅ Use the central API instance
+import api from "../api"; 
 import { Link, useNavigate } from "react-router-dom";
 
 export default function Login() {
