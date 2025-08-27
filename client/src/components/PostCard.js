@@ -36,7 +36,7 @@ export default function PostCard({
               {m.type === "image" ? (
                 <div className="w-full bg-black flex items-center justify-center rounded-lg">
                   <img
-                    src={`http://localhost:5000${m.url}`}
+                    src={`http://localhost:10000${m.url}`}
                     alt="Post"
                     className="max-h-[600px] w-auto object-contain"
                   />
@@ -44,12 +44,12 @@ export default function PostCard({
               ) : (
                 <div className="w-full bg-black flex items-center justify-center rounded-lg">
                   <video
-                    src={`http://localhost:5000${m.url}`}
+                    src={`http://localhost:10000${m.url}`}
                     controls
                     className="max-h-[600px] w-auto object-contain"
                   >
                     <source
-                      src={`http://localhost:5000${m.url}`}
+                      src={`http://localhost:10000${m.url}`}
                       type="video/mp4"
                     />
                   </video>
