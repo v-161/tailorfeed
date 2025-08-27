@@ -111,10 +111,20 @@ export default function Profile() {
       setProfile(res.data.user);
       setEditing(false);
       setAvatar(null); // Reset avatar state after update
+      
+      // Re-fetch profile to ensure data is fresh and synced
+      fetchProfile(); 
     } catch (err) {
       console.error("Profile update failed:", err.response?.data || err.message);
       setError("Profile update failed. Please try again.");
     }
+  };
+
+  // --- New function to handle canceling the bio edit ---
+  const handleCancel = () => {
+    setEditing(false);
+    setAvatar(null);
+    setBio(profile.bio || ""); // Revert bio to the original profile value
   };
 
   // --- Follow/Unfollow ---
@@ -250,7 +260,8 @@ export default function Profile() {
 
         {/* Edit Profile Modal */}
         {editing && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          // Fixed z-index issue by using a high value
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" style={{ zIndex: 1000 }}>
             <form
               onSubmit={handleUpdate}
               className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96"
@@ -277,11 +288,7 @@ export default function Profile() {
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    setEditing(false);
-                    setAvatar(null);
-                    setBio(profile.bio || "");
-                  }}
+                  onClick={handleCancel} // Using the new dedicated function
                   className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
                 >
                   Cancel
@@ -305,4 +312,4 @@ export default function Profile() {
       </div>
     </div>
   );
-}
+                  }
