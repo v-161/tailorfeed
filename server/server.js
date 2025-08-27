@@ -12,14 +12,8 @@ const userRoutes = require("./routes/users");
 
 const app = express();
 
-// CORS configuration to allow credentials from your deployed frontend
-const corsOptions = {
-  origin: 'https://tailorfeed.netlify.app',
-  credentials: true,
-};
-
 // Middleware
-app.use(cors(corsOptions));
+app.use(cors());
 app.use(express.json());
 
 // Serve uploads folder (static files)
