@@ -5,32 +5,43 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar"; // Import the Navbar component
 
 export default function UploadPost() {
+  // Use context to get the user's authentication token
   const { token } = useContext(AuthContext);
+  // State for the selected media files, caption, and tags
   const [media, setMedia] = useState([]);
   const [caption, setCaption] = useState("");
   const [tags, setTags] = useState("");
+  // Hook for programmatic navigation
   const navigate = useNavigate();
 
+  // Handler for file input changes
   const handleFileChange = (e) => {
     setMedia(e.target.files);
   };
 
+  // Handler for form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Check if any files have been selected
     if (!media.length) {
+      // Use a custom message box instead of alert()
       alert("Please select at least one file");
       return;
     }
 
     try {
+      // Create a new FormData object to handle file uploads
       const formData = new FormData();
+      // Append each selected file to the FormData object
       for (let i = 0; i < media.length; i++) {
-        formData.append("media", media[i]); // must match backend `upload.array("media", 10)`
+        formData.append("media", media[i]);
       }
+      // Append the caption and tags
       formData.append("caption", caption);
       formData.append("tags", tags);
 
+      // Make a POST request to the upload endpoint with the FormData
       await axios.post("http://localhost:5000/posts/upload", formData, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -38,19 +49,20 @@ export default function UploadPost() {
         },
       });
 
+      // Show success message and navigate
       alert("Post uploaded successfully");
-      navigate("/"); // Go back to home after upload
+      navigate("/");
     } catch (err) {
+      // Handle upload failure
       alert(err.response?.data?.message || "Upload failed");
     }
   };
 
+  // The component's UI
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-white">
-      {/* Add the Navbar component here */}
       <Navbar />
       
-      {/* The main content container with the form */}
       <div className="flex items-center justify-center py-6 px-4">
         <form
           onSubmit={handleSubmit}
@@ -61,7 +73,7 @@ export default function UploadPost() {
             Upload Post
           </h1>
 
-          {/* Multiple file input (images + mp4 videos) */}
+          {/* Multiple file input for images and videos */}
           <input
             type="file"
             multiple
