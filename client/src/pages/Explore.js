@@ -25,7 +25,7 @@ export default function Explore() {
     if (isAuthenticated()) {
       fetchExplore();
     }
-  }, [fetchExplore, isAuthenticated]); // ✅ Corrected dependencies
+  }, [fetchExplore, isAuthenticated]); // Corrected dependencies
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-white">
