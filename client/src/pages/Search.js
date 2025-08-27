@@ -16,7 +16,7 @@ export default function Search() {
     if (!query) return; // Prevent empty searches
     try {
       // Make a GET request to the search endpoint
-      const res = await axios.get(`http://localhost:5000/users/search/${query}`, {
+      const res = await axios.get(`http://localhost:10000/users/search/${query}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       // Set the search results from the API response
