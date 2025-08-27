@@ -1,6 +1,6 @@
 import { useEffect, useState, useContext, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import axios from "axios";
+import api from "../api";
 import { AuthContext } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 import ProfilePost from "../components/ProfilePost";
@@ -30,17 +30,17 @@ export default function Profile() {
 
       if (id && id === String(user._id)) {
         // Own profile
-        res = await axios.get("http://localhost:5000/users/profile", {
+        res = await api.get("/users/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else if (id) {
         // Other user's profile
-        res = await axios.get(`http://localhost:5000/users/${id}`, {
+        res = await api.get(`/users/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else {
         // Fallback → own profile
-        res = await axios.get("http://localhost:5000/users/profile", {
+        res = await api.get("/users/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
       }
@@ -75,16 +75,12 @@ export default function Profile() {
         formData.append("avatar", avatar);
       }
 
-      const res = await axios.put(
-        "http://localhost:5000/users/profile",
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      const res = await api.put("/users/profile", formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
       console.log("Update response:", res.data);
       setProfile(res.data.user); // ✅ FIXED: refresh with updated user
@@ -97,8 +93,8 @@ export default function Profile() {
   // --- Follow/Unfollow ---
   const handleFollow = async () => {
     try {
-      await axios.post(
-        `http://localhost:5000/users/${id}/follow`,
+      await api.post(
+        `/users/${id}/follow`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -123,7 +119,7 @@ export default function Profile() {
             <img
               src={
                 profile.avatar
-                  ? `http://localhost:5000${profile.avatar}`
+                  ? profile.avatar
                   : "https://placehold.co/100x100/A0AEC0/000000?text=Avatar"
               }
               alt="avatar"
