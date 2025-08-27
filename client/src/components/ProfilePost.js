@@ -4,6 +4,9 @@ export default function ProfilePost({ post }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [open, setOpen] = useState(false);
 
+  // Define the base URL for your deployed backend
+  const backendUrl = "https://tailorfeed-backend.onrender.com";
+
   const nextImage = () => {
     setCurrentIndex((prev) =>
       prev + 1 < post.media.length ? prev + 1 : 0
@@ -24,7 +27,8 @@ export default function ProfilePost({ post }) {
         className="relative w-full h-48 bg-black flex items-center justify-center cursor-pointer"
       >
         <img
-          src={`http://localhost:10000${post.media[currentIndex].url}`}
+          // FIX: Use the deployed backend URL instead of localhost
+          src={`${backendUrl}${post.media[currentIndex].url}`}
           alt="post"
           className="max-w-full max-h-full object-contain"
         />
@@ -48,7 +52,8 @@ export default function ProfilePost({ post }) {
 
             <div className="flex items-center justify-center relative">
               <img
-                src={`http://localhost:10000${post.media[currentIndex].url}`}
+                // FIX: Use the deployed backend URL again in the modal
+                src={`${backendUrl}${post.media[currentIndex].url}`}
                 alt="post"
                 className="max-w-full max-h-[500px] object-contain"
               />
