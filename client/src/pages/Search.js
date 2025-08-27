@@ -6,22 +6,27 @@ import { Link } from "react-router-dom";
 
 export default function Search() {
   const { token } = useContext(AuthContext);
+  // State for the search query and the results
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
 
+  // Handler function for the search form submission
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!query) return;
+    if (!query) return; // Prevent empty searches
     try {
+      // Make a GET request to the search endpoint
       const res = await axios.get(`http://localhost:5000/users/search/${query}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      // Set the search results from the API response
       setResults(res.data);
     } catch (err) {
       console.error("Search error:", err);
     }
   };
 
+  // The component's UI
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-white">
       <Navbar />
