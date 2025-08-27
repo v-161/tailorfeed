@@ -12,28 +12,24 @@ const userRoutes = require("./routes/users");
 
 const app = express();
 
-// List of allowed origins
+// --- THE FIX IS HERE ---
 const allowedOrigins = [
-  'https://tailorfeed.netlify.app',
   'https://tailorfeed-app.vercel.app'
 ];
 
-// CORS configuration to allow credentials from your deployed frontends
 const corsOptions = {
   origin: function (origin, callback) {
-    // allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
     }
-    return callback(null, true);
   },
   credentials: true,
 };
-
-// Middleware
 app.use(cors(corsOptions));
+// ----------------------
+
 app.use(express.json());
 
 // Serve uploads folder (static files)
