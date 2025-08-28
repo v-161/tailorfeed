@@ -1,301 +1,137 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
-import { getAuth, signInWithCustomToken, signInAnonymously } from 'firebase/auth';
-import { getFirestore, doc, setDoc, collection, query, onSnapshot } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
+import { getAuth, signInWithCustomToken, signInAnonymously } from 'firebase/auth';
+import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
 
-// The following global variables are provided by the canvas environment.
-// We must check if they exist before using them.
+// Global variables for Firebase configuration. These are provided by the canvas environment.
+// We check for their existence to prevent errors if running outside the canvas.
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-// AuthContext for user authentication state.
-const AuthContext = createContext(null);
-
-// AuthProvider component to manage Firebase authentication.
-const AuthProvider = ({ children }) => {
+// The main App component
+const App = () => {
+  // State for user authentication and database connection
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [db, setDb] = useState(null);
+  const [auth, setAuth] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // State for dark mode
+  const [darkMode, setDarkMode] = useState(false);
+
+  // useEffect to handle Firebase initialization and authentication
   useEffect(() => {
-    // Initialize Firebase app
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    // Sign in with custom token or anonymously
-    const signIn = async () => {
+    const initializeFirebase = async () => {
       try {
+        // Initialize the Firebase app with the provided config
+        const app = initializeApp(firebaseConfig);
+        const firestoreDb = getFirestore(app);
+        const firestoreAuth = getAuth(app);
+
+        // Set the database and auth instances in state
+        setDb(firestoreDb);
+        setAuth(firestoreAuth);
+
+        // Authenticate the user. Use the custom token if available, otherwise sign in anonymously.
         if (initialAuthToken) {
-          await signInWithCustomToken(auth, initialAuthToken);
+          await signInWithCustomToken(firestoreAuth, initialAuthToken);
         } else {
-          await signInAnonymously(auth);
+          await signInAnonymously(firestoreAuth);
+        }
+
+        // Set the current user after successful authentication
+        const currentUser = firestoreAuth.currentUser;
+        if (currentUser) {
+          setUser(currentUser);
         }
       } catch (error) {
-        console.error("Error signing in:", error);
+        console.error("Firebase initialization or authentication failed:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        // Save user data to Firestore
-        const userId = currentUser.uid;
-        const userDocRef = doc(db, 'users', userId);
-        await setDoc(userDocRef, {
-          uid: currentUser.uid,
-          email: currentUser.email || 'anonymous',
-        }, { merge: true });
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
-    });
+    initializeFirebase();
+  }, []); // Empty dependency array means this effect runs only once on component mount
 
-    signIn();
+  // useEffect to sync dark mode state with localStorage and the DOM
+  useEffect(() => {
+    // Check localStorage for a saved dark mode preference
+    const savedMode = localStorage.getItem('darkMode');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const initialMode = savedMode === 'true' || (savedMode === null && prefersDark);
 
-    return () => unsubscribe();
+    setDarkMode(initialMode);
+    // Apply the 'dark' class to the html element based on the initial mode
+    document.documentElement.classList.toggle('dark', initialMode);
   }, []);
 
+  // Function to toggle dark mode
+  const toggleDarkMode = () => {
+    // Invert the dark mode state
+    const newMode = !darkMode;
+    setDarkMode(newMode);
+    // Update the 'dark' class on the html element
+    document.documentElement.classList.toggle('dark', newMode);
+    // Save the new preference to localStorage
+    localStorage.setItem('darkMode', newMode);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-500">
+        <div className="text-xl text-gray-800 dark:text-gray-200">
+          Loading...
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
-
-// Navbar component.
-const Navbar = () => {
-  const { user } = useContext(AuthContext);
-
-  const navItems = [
-    { name: 'Home', href: '#' },
-    { name: 'Profile', href: '#' },
-    { name: 'Settings', href: '#' },
-  ];
-
-  return (
-    <nav className="bg-white shadow-lg fixed top-0 left-0 right-0 z-50">
-      <div className="container mx-auto px-4 py-3 md:flex md:justify-between md:items-center">
-        <div className="flex items-center justify-between">
-          <a href="#" className="text-2xl font-bold text-gray-800 transition-colors duration-300 transform hover:text-blue-500">
-            SocialApp
-          </a>
-          <div className="md:hidden">
-            <button type="button" className="text-gray-500 hover:text-gray-600 focus:outline-none focus:text-gray-600">
-              <svg viewBox="0 0 24 24" className="w-6 h-6 fill-current">
-                <path fillRule="evenodd" d="M4 5h16a1 1 0 010 2H4a1 1 0 110-2zm0 6h16a1 1 0 010 2H4a1 1 0 010-2zm0 6h16a1 1 0 010 2H4a1 1 0 010-2z" clipRule="evenodd"></path>
+    <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-500">
+      <nav className="bg-white dark:bg-gray-800 shadow-md p-4 flex justify-between items-center transition-colors duration-500">
+        <div className="text-xl font-bold">
+          My App
+        </div>
+        <div className="flex items-center space-x-4">
+          <p className="hidden md:block text-gray-600 dark:text-gray-400">
+            {user ? `User ID: ${user.uid}` : 'User not logged in'}
+          </p>
+          <button
+            onClick={toggleDarkMode}
+            className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-300"
+            aria-label="Toggle dark mode"
+          >
+            {/* Sun icon for light mode */}
+            {darkMode ? (
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                <path d="M12 2.25a.75.75 0 0 1 .75.75v2.25a.75.75 0 0 1-1.5 0V3a.75.75 0 0 1 .75-.75ZM7.5 12a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM18.894 6.106a.75.75 0 0 0-1.06-1.06l-1.591 1.59a.75.75 0 1 0 1.06 1.061l1.591-1.59ZM21.75 12a.75.75 0 0 1-.75.75h-2.25a.75.75 0 0 1 0-1.5H21a.75.75 0 0 1 .75.75ZM17.154 18.154a.75.75 0 0 0-1.06-1.06l-1.591 1.59a.75.75 0 0 0 1.06 1.06l1.591-1.59ZM12 18.75a.75.75 0 0 1 .75.75v2.25a.75.75 0 0 1-1.5 0v-2.25a.75.75 0 0 1 .75-.75ZM4.293 17.707a.75.75 0 0 0 1.06-1.061l-1.591-1.59a.75.75 0 0 0-1.06 1.06l1.591 1.59ZM3 12a.75.75 0 0 1 .75-.75h2.25a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 12Zm6.106-12.894a.75.75 0 0 0-.69-.516c-.346 0-.69.213-.69.516V3a.75.75 0 0 0 1.5 0V.75a.75.75 0 0 0-.75-.75Z" />
               </svg>
-            </button>
-          </div>
-        </div>
-        <div className="md:flex items-center">
-          <div className="flex flex-col md:flex-row md:mx-6">
-            {navItems.map((item, index) => (
-              <a key={index} href={item.href} className="my-1 text-gray-700 hover:text-blue-500 md:mx-4 transition-colors duration-300 transform">
-                {item.name}
-              </a>
-            ))}
-          </div>
-          <div className="relative">
-            {user ? (
-              <div className="flex items-center space-x-2">
-                <span className="text-gray-800 text-sm">Hi, {user.uid.substring(0, 8)}...</span>
-                <img className="w-8 h-8 rounded-full border border-gray-300" src="https://placehold.co/100x100/A0AEC0/ffffff?text=U" alt="Profile Picture" />
-              </div>
             ) : (
-              <span className="text-gray-800 text-sm">Signing in...</span>
+              // Moon icon for dark mode
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                <path fillRule="evenodd" d="M9.507 18.251A8.995 8.995 0 0 1 12 17.25a9.004 9.004 0 0 1-9.754-5.251A8.251 8.251 0 0 0 10.5 19.5c.875 0 1.72-.118 2.522-.33a.75.75 0 1 1 .684 1.488C12.392 20.89 11.455 21 10.5 21a9.75 9.75 0 0 1-9.75-9.75c0-2.02.433-3.931 1.258-5.632A9.006 9.006 0 0 1 12 3a8.995 8.995 0 0 1 2.493 1.251.75.75 0 0 1-.684 1.488A7.505 7.505 0 0 0 12 5.25a7.505 7.505 0 0 0-7.5 7.5c0 1.018.175 2.007.507 2.932a.75.75 0 0 1-.684 1.488A9.75 9.75 0 0 1 1.5 12C1.5 6.477 6.043 2.5 12 2.5s10.5 3.977 10.5 9.25c0 5.273-4.543 9.75-10.5 9.75-1.127 0-2.22-.244-3.26-.708a.75.75 0 1 1 .684-1.488Z" clipRule="evenodd" />
+              </svg>
             )}
-          </div>
+          </button>
         </div>
-      </div>
-    </nav>
-  );
-};
+      </nav>
 
-// Custom Carousel component to display images.
-const ImageCarousel = ({ images }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  const nextSlide = () => {
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
-  };
-
-  const prevSlide = () => {
-    setCurrentIndex((prevIndex) => (prevIndex - 1 + images.length) % images.length);
-  };
-
-  return (
-    <div className="relative w-full h-96 overflow-hidden rounded-md">
-      {images.map((img, index) => (
-        <img
-          key={index}
-          src={img}
-          alt={`Post image ${index + 1}`}
-          className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-500 ease-in-out ${
-            index === currentIndex ? 'opacity-100' : 'opacity-0'
-          }`}
-        />
-      ))}
-      <button
-        onClick={prevSlide}
-        className="absolute top-1/2 left-4 -translate-y-1/2 bg-white/30 text-white p-2 rounded-full hover:bg-white/50 transition"
-      >
-        &#9664;
-      </button>
-      <button
-        onClick={nextSlide}
-        className="absolute top-1/2 right-4 -translate-y-1/2 bg-white/30 text-white p-2 rounded-full hover:bg-white/50 transition"
-      >
-        &#9654;
-      </button>
+      <main className="container mx-auto p-8">
+        <h1 className="text-3xl font-bold mb-4">
+          Welcome to Your App
+        </h1>
+        <p className="text-lg">
+          This is a sample page to demonstrate the dark mode functionality.
+          Click the sun or moon icon in the top right corner to toggle the theme.
+        </p>
+        <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+          The application is connected to Firebase Firestore and is authenticated.
+        </p>
+      </main>
     </div>
   );
 };
 
-// ProfilePost component to display a single post.
-const ProfilePost = ({ post }) => {
-  return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden transition-transform transform hover:scale-105">
-      <div className="relative">
-        <ImageCarousel images={post.images} />
-      </div>
-      <div className="p-4">
-        <div className="flex items-center mb-4">
-          <img src={post.profileImage} alt="Profile" className="w-10 h-10 rounded-full object-cover border-2 border-blue-500" />
-          <div className="ml-3">
-            <h4 className="font-bold text-gray-800">{post.username}</h4>
-            <p className="text-sm text-gray-500">{post.timestamp}</p>
-          </div>
-        </div>
-        <p className="text-gray-700 leading-relaxed mb-4">{post.content}</p>
-        <div className="flex items-center space-x-4 text-gray-500">
-          <div className="flex items-center space-x-1 hover:text-blue-500 cursor-pointer transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-            </svg>
-            <span>{post.likes}</span>
-          </div>
-          <div className="flex items-center space-x-1 hover:text-blue-500 cursor-pointer transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.536 12.279 2 10.165 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7z" clipRule="evenodd" />
-            </svg>
-            <span>{post.comments}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ProfilePage = () => {
-  const { user, loading } = useContext(AuthContext);
-  const [posts, setPosts] = useState([]);
-
-  useEffect(() => {
-    if (user) {
-      const app = initializeApp(firebaseConfig);
-      const db = getFirestore(app);
-      const postsCollection = collection(db, `artifacts/${appId}/public/data/posts`);
-
-      const q = query(postsCollection);
-      const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const fetchedPosts = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setPosts(fetchedPosts);
-      });
-
-      // Cleanup listener on component unmount
-      return () => unsubscribe();
-    }
-  }, [user]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-lg font-semibold text-gray-700">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-lg font-semibold text-gray-700">Failed to authenticate.</div>
-      </div>
-    );
-  }
-
-  const userId = user.uid;
-
-  const profileData = {
-    username: 'Jane Doe',
-    handle: '@janedoe',
-    bio: 'Software engineer passionate about front-end development, UI/UX design, and sharing cool projects.',
-    profileImage: 'https://placehold.co/150x150/000000/FFFFFF?text=J',
-    coverImage: 'https://placehold.co/1000x300/F0F4F8/607E96?text=Cover+Image',
-    followers: 1200,
-    following: 350,
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-100 font-sans">
-      <Navbar />
-      <div className="container mx-auto p-4 mt-16 sm:p-6 lg:p-8">
-        <div className="bg-white rounded-lg shadow-xl overflow-hidden mb-8">
-          <div className="relative">
-            <img src={profileData.coverImage} alt="Cover" className="w-full h-48 object-cover rounded-t-lg" />
-            <div className="absolute left-6 -bottom-16">
-              <img src={profileData.profileImage} alt="Profile" className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg" />
-            </div>
-          </div>
-          <div className="pt-20 p-6 sm:p-8">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">{profileData.username}</h1>
-                <p className="text-gray-500 text-lg">{profileData.handle}</p>
-                <div className="flex mt-4 space-x-6 text-gray-700">
-                  <div className="flex items-center">
-                    <span className="font-bold text-lg">{profileData.followers}</span>
-                    <span className="ml-1 text-sm">Followers</span>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="font-bold text-lg">{profileData.following}</span>
-                    <span className="ml-1 text-sm">Following</span>
-                  </div>
-                </div>
-              </div>
-              <button className="bg-blue-600 text-white px-6 py-2 rounded-full font-semibold hover:bg-blue-700 transition duration-300 transform hover:scale-105">
-                Follow
-              </button>
-            </div>
-            <p className="text-gray-700 mt-4 leading-relaxed">{profileData.bio}</p>
-          </div>
-        </div>
-        <div className="text-2xl font-bold text-gray-800 mb-6">Recent Posts</div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {posts.length > 0 ? (
-            posts.map((post) => (
-              <ProfilePost key={post.id} post={post} />
-            ))
-          ) : (
-            <div className="md:col-span-2 lg:col-span-3 text-center text-gray-500 py-10">
-              No posts found.
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Main App component
-export default function App() {
-  return (
-    <AuthProvider>
-      <ProfilePage />
-    </AuthProvider>
-  );
-}
+export default App;
