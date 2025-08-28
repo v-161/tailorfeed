@@ -1,5 +1,6 @@
-import { useState, useContext } from "react";
+import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
+
 // FIX: Mocking the imports to make the component runnable in isolation.
 // In your real application, these would be in separate files.
 const api = {
@@ -14,7 +15,6 @@ const api = {
   },
 };
 const AuthContext = React.createContext({ token: "fake-token" });
-
 
 export default function UploadPost() {
   const navigate = useNavigate();
@@ -70,7 +70,6 @@ export default function UploadPost() {
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-white">
-      {/* Navbar is intentionally omitted here as it should be in App.js */}
       <div className="max-w-2xl mx-auto py-6 px-4">
         <h1 className="text-2xl font-bold mb-6 text-center">Upload New Post</h1>
         <form
