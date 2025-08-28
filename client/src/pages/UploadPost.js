@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-
+import Navbar from "../components/Navbar"; // ✅ Import Navbar
 
 // Your ImgBB API Key
 const IMGBB_API_KEY = "28a32508b8289106a69481044e67a173";
@@ -52,10 +52,10 @@ const UploadPost = () => {
         caption,
         imageUrl,
         timestamp: new Date().toISOString(),
-        userId: "test-user-id", // Replace with actual logged-in user
+        userId: "test-user-id", // Replace with actual logged-in user later
       };
 
-      // Optionally send to your backend API here
+      // 👉 Optionally send `postData` to your backend here using axios/fetch
       console.log("Post data:", postData);
 
       setStatus("Post uploaded successfully!");
@@ -66,7 +66,7 @@ const UploadPost = () => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 dark:bg-[#111] p-4">
-      <Navbar />
+      <Navbar /> {/* ✅ Now this works */}
       <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">
         Create a New Post
       </h1>
