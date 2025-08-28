@@ -6,7 +6,7 @@ import { getFirestore, collection, addDoc, query, onSnapshot, orderBy } from "fi
 // The rest of your imports
 import Navbar from "../components/Navbar";
 
-
+// This is your unique API key for ImgBB.
 const IMGBB_API_KEY = "28a32508b8289106a69481044e67a173";
 
 // Firebase configuration from your environment variables
