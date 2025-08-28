@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useContext, useCallback } from "react";
 import { useParams } from "react-router-dom";
-// FIX: Mocking the imports to make the component runnable in isolation.
-// In a real application, you would need to provide these files.
+import api from "../api"; 
+import Navbar from "../components/Navbar";
 const api = {
   get: async (url, config) => {
     console.log(`GET request to: ${url}`);
@@ -14,7 +14,7 @@ const api = {
             email: "test@example.com",
             bio: "This is a test bio.",
             avatar: {
-              secure_url: "https://placehold.co/100x100/A0AEC0/000000?text=Avatar"
+              secure_url: "https://res.cloudinary.com/demo/image/upload/v1600000000/sample.jpg"
             },
             followers: ["follower1", "follower2"],
             following: ["following1"],
@@ -25,7 +25,7 @@ const api = {
               caption: "First post!",
               media: [
                 {
-                  secure_url: "https://placehold.co/400x400/2F855A/FFFFFF?text=Post+1",
+                  secure_url: "https://res.cloudinary.com/demo/image/upload/v1600000000/cat.jpg",
                   type: "image"
                 }
               ]
@@ -35,8 +35,8 @@ const api = {
               caption: "Second post!",
               media: [
                 {
-                  secure_url: "https://placehold.co/400x400/805AD5/FFFFFF?text=Post+2",
-                  type: "image"
+                  secure_url: "https://res.cloudinary.com/demo/video/upload/v1600000000/dog.mp4",
+                  type: "video"
                 }
               ]
             }
@@ -48,7 +48,6 @@ const api = {
   },
   put: async (url, data, config) => {
     console.log(`PUT request to: ${url}`);
-    // Simulate a successful update and return mock data
     return { data: { user: { ...data, bio: data.get("bio") } } };
   },
   post: async (url, data, config) => {
@@ -74,7 +73,6 @@ const Navbar = () => (
     </div>
   </nav>
 );
-// Post thumbnail component for the profile grid
 const ProfilePost = ({ post }) => (
   <div className="relative w-full h-48 overflow-hidden rounded-lg shadow-md">
     {post.media && post.media.length > 0 ? (
@@ -99,10 +97,12 @@ const ProfilePost = ({ post }) => (
   </div>
 );
 
-// New PostModal component for displaying enlarged content
+
+// New PostModal component for displaying enlarged image
 const PostModal = ({ post, onClose }) => {
   if (!post || !post.media || post.media.length === 0) return null;
 
+  // The media array now contains objects with secure_url
   const mediaItem = post.media[0];
 
   return (
@@ -116,6 +116,7 @@ const PostModal = ({ post, onClose }) => {
         </button>
         {mediaItem.type === "image" ? (
           <img
+            // FIX: Use the secure_url from the media object
             src={mediaItem.secure_url}
             alt="Enlarged Post"
             className="max-w-full max-h-[80vh] object-contain rounded"
@@ -157,7 +158,6 @@ export default function Profile() {
       setError(null);
       let res;
 
-      // Determine which user's profile to fetch (current user or another user by ID)
       if (!id || id === String(user?._id)) {
         res = await api.get("/users/profile", {
           headers: { Authorization: `Bearer ${token}` },
@@ -212,7 +212,6 @@ export default function Profile() {
       setEditing(false);
       setAvatar(null);
 
-      // Re-fetch profile to get the most updated data from the server
       fetchProfile();
     } catch (err) {
       console.error("Profile update failed:", err.response?.data || err.message);
@@ -280,19 +279,20 @@ export default function Profile() {
       <Navbar />
       <div className="max-w-3xl mx-auto py-6 px-4">
         {/* Profile Header */}
-        <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between mb-6 gap-4">
-          <div className="flex flex-col sm:flex-row items-center gap-4">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
             <img
+              // FIX: Use the secure_url from the Cloudinary response
               src={
                 profile.avatar?.secure_url || "https://placehold.co/100x100/A0AEC0/000000?text=Avatar"
               }
               alt="avatar"
               className="w-24 h-24 rounded-full object-cover"
             />
-            <div className="text-center sm:text-left">
+            <div>
               <h1 className="text-2xl font-bold">{profile.username}</h1>
               <p className="text-gray-600 dark:text-gray-300">{profile.email}</p>
-              <p className="mt-2 text-gray-800 dark:text-gray-100">{profile.bio || "No bio yet."}</p>
+              <p className="mt-2">{profile.bio || "No bio yet."}</p>
               {profile._id === user._id && (
                 <button
                   onClick={() => setEditing(true)}
@@ -306,9 +306,9 @@ export default function Profile() {
           {profile._id !== user._id && (
             <button
               onClick={handleFollow}
-              className={`px-4 py-2 rounded-lg transition-colors mt-4 sm:mt-0 ${
+              className={`px-4 py-2 rounded ${
                 isFollowing ? "bg-red-500 hover:bg-red-600" : "bg-blue-500 hover:bg-blue-600"
-              } text-white`}
+              } text-white transition-colors`}
             >
               {isFollowing ? "Unfollow" : "Follow"}
             </button>
