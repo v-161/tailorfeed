@@ -13,13 +13,13 @@ const ProfilePost = ({ post, onClick }) => (
     {post.media && post.media.length > 0 ? (
       post.media[0].type === "image" ? (
         <img
-          src={`http://localhost:5000${post.media[0].url}`}
+          src={`http://localhost:10000${post.media[0].url}`}
           alt="post thumbnail"
           className="w-full h-full object-cover"
         />
       ) : (
         <video
-          src={`http://localhost:5000${post.media[0].url}`}
+          src={`http://localhost:10000${post.media[0].url}`}
           className="w-full h-full object-cover"
           poster="https://placehold.co/400x400/A0AEC0/000000?text=Video"
         />
@@ -49,18 +49,18 @@ const PostModal = ({ post, onClose }) => {
         </button>
         {mediaItem.type === "image" ? (
           <img
-            src={`http://localhost:5000${mediaItem.url}`}
+            src={`http://localhost:10000${mediaItem.url}`}
             alt="Enlarged Post"
             className="max-w-full max-h-[80vh] object-contain rounded"
           />
         ) : (
           <video
-            src={`http://localhost:5000${mediaItem.url}`}
+            src={`http://localhost:10000${mediaItem.url}`}
             controls
             className="max-w-full max-h-[80vh] object-contain rounded"
           >
             <source
-              src={`http://localhost:5000${mediaItem.url}`}
+              src={`http://localhost:10000${mediaItem.url}`}
               type="video/mp4"
             />
           </video>
@@ -95,11 +95,11 @@ export default function Profile() {
 
       let res;
       if (!id || id === String(user?._id)) {
-        res = await axios.get("http://localhost:5000/users/profile", {
+        res = await axios.get("http://localhost:10000/users/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else {
-        res = await axios.get(`http://localhost:5000/users/${id}`, {
+        res = await axios.get(`http://localhost:10000/users/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
       }
@@ -136,7 +136,7 @@ export default function Profile() {
         formData.append("avatar", avatar);
       }
 
-      const res = await axios.put("http://localhost:5000/users/profile", formData, {
+      const res = await axios.put("http://localhost:10000/users/profile", formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
@@ -173,7 +173,7 @@ export default function Profile() {
           <img
             src={
               profile?.avatar?.url
-                ? `http://localhost:5000${profile.avatar.url}`
+                ? `http://localhost:10000${profile.avatar.url}`
                 : "https://placehold.co/100x100?text=Avatar"
             }
             alt="avatar"
