@@ -1,42 +1,28 @@
-import React from 'react';
-import { BrowserRouter as Router, Link } from 'react-router-dom';
+import React from "react";
+import { Link } from "react-router-dom";
 
-// FIX: Mocking the PostCard as a standalone component with dummy data.
-const post = {
-  _id: '1',
-  user: {
-    _id: 'user123',
-    username: 'JohnDoe',
-  },
-  media: [
-    {
-      type: 'image',
-      secure_url: 'https://placehold.co/600x400/000000/FFFFFF.png?text=Image+1',
-    },
-    {
-      type: 'video',
-      secure_url: 'https://www.w3schools.com/html/mov_bbb.mp4',
-    },
-  ],
-  caption: 'This is a test post with a caption and some tags!',
-  tags: ['react', 'tailwindcss', 'vercel'],
-  likes: [
-    { _id: 'like1' },
-    { _id: 'like2' },
-  ],
-  comments: [
-    { user: { username: 'JaneSmith' }, text: 'Great post!' },
-    { user: { username: 'PeterJones' }, text: 'Awesome!' },
-  ],
-};
-
-const PostCard = ({
+/**
+ * A reusable React component for displaying a single social media post.
+ * This component includes user information, media (image/video),
+ * caption, tags, like button, and a comment section.
+ *
+ * It is designed to work as a presentational component, receiving data
+ * and functions as props from a parent component.
+ *
+ * @param {object} props The component props.
+ * @param {object} props.post The post data object to be displayed.
+ * @param {Function} props.toggleLike Function to handle liking/unliking a post.
+ * @param {Function} props.addComment Function to handle adding a new comment.
+ * @param {object} props.commentInputs Object containing the current comment input values for all posts.
+ * @param {Function} props.setCommentInputs Function to update the comment input values.
+ */
+export default function PostCard({
   post,
   toggleLike,
   addComment,
   commentInputs,
   setCommentInputs,
-}) => {
+}) {
   // Return null if the post object is not provided, to prevent errors.
   if (!post) {
     return null;
@@ -151,33 +137,5 @@ const PostCard = ({
         </div>
       </div>
     </div>
-  );
-};
-
-// This is the component that will be rendered
-export default function App() {
-  const [commentInputs, setCommentInputs] = React.useState({});
-
-  const toggleLike = (postId) => {
-    console.log(`Liking/unliking post: ${postId}`);
-  };
-
-  const addComment = (postId) => {
-    console.log(`Adding comment to post: ${postId} with text: ${commentInputs[postId]}`);
-    setCommentInputs((prev) => ({ ...prev, [postId]: '' }));
-  };
-
-  return (
-    <Router>
-      <div className="min-h-screen bg-gray-100 dark:bg-black p-4">
-        <PostCard
-          post={post}
-          toggleLike={toggleLike}
-          addComment={addComment}
-          commentInputs={commentInputs}
-          setCommentInputs={setCommentInputs}
-        />
-      </div>
-    </Router>
   );
 }
