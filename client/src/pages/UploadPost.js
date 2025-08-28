@@ -1,21 +1,7 @@
 import React, { useState, useContext } from "react";
-import { BrowserRouter as Router, useNavigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
 
-// FIX: Mocking the imports to make the component runnable in isolation.
-// In a real application, you would need to provide these files.
-const api = {
-  post: async (url, formData, config) => {
-    console.log(`POST request to: ${url}`);
-    console.log("FormData:", Object.fromEntries(formData));
-    // Simulate a successful API response
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({ data: { message: "Success" } });
-      }, 1000);
-    });
-  },
-};
-const AuthContext = React.createContext({ token: "fake-token" });
+// This is the corrected Navbar component from your original code.
 const Navbar = () => (
   <nav className="bg-white dark:bg-gray-800 shadow-md p-4">
     <div className="container mx-auto flex justify-between items-center">
@@ -31,19 +17,31 @@ const Navbar = () => (
   </nav>
 );
 
+// This is the corrected UploadPost component.
+// NOTE: I have removed the import and rendering of the <Navbar /> component from here.
 function UploadPost() {
-  // Use context to get the user's authentication token
+  // FIX: Mocking the imports to make the component runnable in isolation.
+  const api = {
+    post: async (url, formData, config) => {
+      console.log(`POST request to: ${url}`);
+      console.log("FormData:", Object.fromEntries(formData));
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({ data: { message: "Success" } });
+        }, 1000);
+      });
+    },
+  };
+  const AuthContext = React.createContext({ token: "fake-token" });
+
   const { token } = useContext(AuthContext);
-  // State for the selected media file, caption, tags, and message
   const [media, setMedia] = useState(null);
   const [caption, setCaption] = useState("");
   const [tags, setTags] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  // Hook for programmatic navigation
   const navigate = useNavigate();
 
-  // Handler for file input changes
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -51,12 +49,10 @@ function UploadPost() {
     }
   };
 
-  // Handler for form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
-    // Check if a file has been selected
     if (!media) {
       setMessage("Please select a file to upload.");
       setLoading(false);
@@ -64,16 +60,11 @@ function UploadPost() {
     }
 
     try {
-      // Create a new FormData object to handle file uploads
       const formData = new FormData();
-      // Append the single selected file to the FormData object
       formData.append("media", media);
-      // Append the caption and tags
       formData.append("caption", caption);
-      // Ensure tags are a comma-separated string
       formData.append("tags", tags);
 
-      // Make a POST request to the upload endpoint
       await api.post("/posts/upload", formData, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -81,24 +72,20 @@ function UploadPost() {
         },
       });
 
-      // Show success message and navigate
       setMessage("Post uploaded successfully!");
       setCaption("");
       setTags("");
       setMedia(null);
-      setTimeout(() => navigate("/"), 2000); // Redirect after 2 seconds
+      setTimeout(() => navigate("/"), 2000);
     } catch (err) {
-      // Handle upload failure
       setMessage(err.response?.data?.message || "Upload failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // The component's UI
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-white">
-      <Navbar />
       <div className="flex items-center justify-center py-6 px-4">
         <form
           onSubmit={handleSubmit}
@@ -109,7 +96,6 @@ function UploadPost() {
             Upload Post
           </h1>
 
-          {/* Single file input for images and videos */}
           <input
             type="file"
             accept="image/*,video/mp4"
@@ -154,11 +140,15 @@ function UploadPost() {
   );
 }
 
-// This is the component that will be rendered
+// This is the component that will be rendered, including a sample of how to use react-router-dom
 export default function App() {
   return (
     <Router>
-      <UploadPost />
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<div>Home Page</div>} />
+        <Route path="/upload" element={<UploadPost />} />
+      </Routes>
     </Router>
   );
 }
