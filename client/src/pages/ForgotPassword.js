@@ -1,5 +1,5 @@
 import { useState } from "react";
-import axios from "axios";
+import api from "../api"; // Use the central API instance
 import { Link } from "react-router-dom";
 
 export default function ForgotPassword() {
@@ -9,7 +9,8 @@ export default function ForgotPassword() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("http://localhost:5000/auth/forgot-password", { email });
+      // Use api.post instead of axios.post with hardcoded URL
+      const res = await api.post("/auth/forgot-password", { email });
       setMessage(res.data.message);
     } catch (err) {
       setMessage(err.response?.data?.message || "Something went wrong");

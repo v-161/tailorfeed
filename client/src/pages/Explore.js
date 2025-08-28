@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState, useCallback } from "react";
-import axios from "axios";
+import api from "../api"; 
 import { AuthContext } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 import { Link } from "react-router-dom";
@@ -11,7 +11,8 @@ export default function Explore() {
   // Memoize the fetchExplore function using useCallback to prevent infinite loops
   const fetchExplore = useCallback(async () => {
     try {
-      const res = await axios.get("http://localhost:5000/posts/explore", {
+      // Use api.get instead of axios.get with hardcoded URL
+      const res = await api.get("/posts/explore", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setPosts(res.data);
@@ -24,7 +25,7 @@ export default function Explore() {
     if (isAuthenticated()) {
       fetchExplore();
     }
-  }, [fetchExplore, isAuthenticated]); // ✅ Corrected dependencies
+  }, [fetchExplore, isAuthenticated]); // Corrected dependencies
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-white">
@@ -38,7 +39,8 @@ export default function Explore() {
             <Link to={`/profile/${post.user._id}`} key={post._id}>
               {post.imageUrl && (
                 <img
-                  src={`http://localhost:5000${post.imageUrl}`}
+                  // Use a relative path instead of a hardcoded URL
+                  src={`${post.imageUrl}`}
                   alt="Explore"
                   className="w-full h-40 object-cover hover:opacity-80 transition"
                 />

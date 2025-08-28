@@ -1,34 +1,68 @@
-import React, { useState } from "react";
-import axios from "axios";
+import React, { useState, useContext } from "react";
+// Import the centralized API instance
+import api from "../api";
+import { AuthContext } from "../context/AuthContext"; // Import AuthContext to access the token
 
 export default function Upload({ onUploadSuccess }) {
+  // Use a state variable for the media files
   const [mediaFiles, setMediaFiles] = useState([]);
+  // Use a state variable for the caption
   const [caption, setCaption] = useState("");
+  // Use a state variable for the tags
   const [tags, setTags] = useState("");
+  // Use a state variable for showing messages to the user
+  const [message, setMessage] = useState("");
 
+  // Get the token from the AuthContext to use for authentication
+  const { user, token } = useContext(AuthContext);
+
+  // Handle file input changes and store the selected files in state
   const handleFileChange = (e) => {
     setMediaFiles([...e.target.files]);
   };
 
+  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (mediaFiles.length === 0) return alert("Select files to upload");
 
+    // Simple validation to ensure files are selected
+    if (mediaFiles.length === 0) {
+      setMessage("Please select files to upload.");
+      return;
+    }
+
+    // Check if the user and token exist before attempting the upload
+    if (!user || !token) {
+      setMessage("You must be logged in to upload content.");
+      return;
+    }
+
+    // Create a new FormData object to send a multipart/form-data request
     const formData = new FormData();
     mediaFiles.forEach((file) => formData.append("media", file));
     formData.append("caption", caption);
-    formData.append("tags", tags.split(",").map((t) => t.trim()));
+    formData.append("tags", tags);
 
     try {
-      await axios.post("http://localhost:5000/posts/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+      // Make the authenticated POST request using the shared 'api' instance
+      await api.post("/posts/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`, // Add the Authorization header
+        },
       });
+
+      // Reset the form fields on a successful upload
       setMediaFiles([]);
       setCaption("");
       setTags("");
-      if (onUploadSuccess) onUploadSuccess(); // Refresh feed
+      setMessage("Upload successful!");
+
+      // Call the success callback to refresh the feed or perform other actions
+      if (onUploadSuccess) onUploadSuccess();
     } catch (err) {
-      console.log(err);
+      console.error("Upload failed:", err);
+      setMessage(err.response?.data?.message || "Upload failed");
     }
   };
 
@@ -58,6 +92,11 @@ export default function Upload({ onUploadSuccess }) {
       <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
         Upload
       </button>
+      {message && (
+        <p className="mt-2 text-sm text-center text-gray-700 dark:text-gray-300">
+          {message}
+        </p>
+      )}
     </form>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState, useContext } from "react";
-import axios from "axios";
+import api from "../api"; 
 import Navbar from "../components/Navbar";
 import PostCard from "../components/PostCard";
 import { AuthContext } from "../context/AuthContext";
@@ -14,7 +14,7 @@ export default function Home() {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/posts/feed", {
+        const res = await api.get("/posts/feed", {
           headers: { Authorization: `Bearer ${token}` },
         });
         setPosts(res.data);
@@ -31,16 +31,13 @@ export default function Home() {
   // Toggle Like
   const toggleLike = async (postId) => {
     try {
-      const res = await axios.post(
-        `http://localhost:5000/posts/${postId}/like`,
+      const res = await api.post(
+        `/posts/${postId}/like`,
         {},
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // ✅ FIX: The backend now returns the full, updated post object.
-      // We can use the returned `res.data` to update the post in our state.
+      // ✅ Update the post in state with updated one from backend
       setPosts((prev) =>
         prev.map((p) =>
           p._id === postId ? res.data : p
@@ -55,8 +52,8 @@ export default function Home() {
   const addComment = async (postId) => {
     if (!commentInputs[postId]) return;
     try {
-      const res = await axios.post(
-        `http://localhost:5000/posts/${postId}/comment`,
+      const res = await api.post(
+        `/posts/${postId}/comment`,
         { text: commentInputs[postId] },
         { headers: { Authorization: `Bearer ${token}` } }
       );
