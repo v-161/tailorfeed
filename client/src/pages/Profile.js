@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useContext, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import api from "../api"; 
 import Navbar from "../components/Navbar";
 const api = {
   get: async (url, config) => {
