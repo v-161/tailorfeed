@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
+import { getAuth } from 'firebase/auth'; 
 import { getAnalytics } from "firebase/analytics";
 import { getFirestore, collection, addDoc, query, onSnapshot, orderBy } from "firebase/firestore";
 import Navbar from "../components/Navbar";
