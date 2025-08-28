@@ -1,202 +1,137 @@
 import React, { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
-import { getAuth } from 'firebase/auth'; 
 import { getAnalytics } from "firebase/analytics";
 import { getFirestore, collection, addDoc, query, onSnapshot, orderBy } from "firebase/firestore";
+
+// The rest of your imports
 import Navbar from "../components/Navbar";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBYWgX6Qi-4TCYmegHTGonRUXWAoajttjg",
-  authDomain: "tailorfeed-project.firebaseapp.com",
-  projectId: "tailorfeed-project",
-  storageBucket: "tailorfeed-project.firebasestorage.app",
-  messagingSenderId: "247917038406",
-  appId: "1:247917038406:web:223ad6e29f4bda66967347",
-  measurementId: "G-CNR0MJQBHF"
-};
 
-// Cloudinary credentials
-const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/dxkt5xsno/image/upload";
-const CLOUDINARY_UPLOAD_PRESET = "tailorfeed_image_app";
+const IMGBB_API_KEY = "28a32508b8289106a69481044e67a173";
 
-// Initialize Firebase App and Firestore
+// Firebase configuration from your environment variables
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 const db = getFirestore(app);
 
-export default function UploadPost() {
-  const [media, setMedia] = useState(null);
+// This component will handle the image upload and form submission
+const UploadPost = () => {
+  const [selectedFile, setSelectedFile] = useState(null);
   const [caption, setCaption] = useState("");
-  const [tags, setTags] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const [posts, setPosts] = useState([]);
-  const [loadingPosts, setLoadingPosts] = useState(true);
+  const [status, setStatus] = useState("");
 
-  // Set up a real-time listener for posts from Firestore
-  useEffect(() => {
-    const postsCollection = collection(db, "posts");
-    const q = query(postsCollection, orderBy("createdAt", "desc"));
-
-    // onSnapshot listens for real-time updates and automatically re-fetches data
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedPosts = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setPosts(fetchedPosts);
-      setLoadingPosts(false);
-    });
-
-    // Cleanup the listener when the component unmounts
-    return () => unsubscribe();
-  }, []);
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setMedia(file);
-    }
+  // Function to handle file selection from the input
+  const handleFileChange = (event) => {
+    setSelectedFile(event.target.files[0]);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage("");
-
-    if (!media) {
-      setMessage("Please select a file to upload.");
-      setLoading(false);
-      return;
-    }
+  // Function to upload the image to ImgBB
+  const uploadToImgBB = async (file) => {
+    const formData = new FormData();
+    formData.append("image", file);
 
     try {
-      // 1. Upload image to Cloudinary
-      const formData = new FormData();
-      formData.append("file", media);
-      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-
-      const cloudinaryResponse = await fetch(CLOUDINARY_URL, {
+      const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
         method: "POST",
         body: formData,
       });
 
-      if (!cloudinaryResponse.ok) {
-        throw new Error("Cloudinary upload failed.");
+      if (!response.ok) {
+        throw new Error("Failed to upload image to ImgBB");
       }
 
-      const cloudinaryData = await cloudinaryResponse.json();
-      const imageUrl = cloudinaryData.secure_url;
+      const result = await response.json();
+      return result.data.url; // Return the hosted image URL
+    } catch (error) {
+      console.error("Error uploading to ImgBB:", error);
+      setStatus("Image upload failed. Please try again.");
+      return null;
+    }
+  };
 
-      // 2. Save post data (including the image URL) to Firestore
-      await addDoc(collection(db, "posts"), {
-        caption,
-        tags,
-        imageUrl,
-        createdAt: new Date(),
-      });
+  // Function to handle the form submission
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!selectedFile || !caption) {
+      setStatus("Please select an image and write a caption.");
+      return;
+    }
 
-      setMessage("Post uploaded successfully!");
-      setCaption("");
-      setTags("");
-      setMedia(null);
-    } catch (err) {
-      console.error("Upload failed:", err);
-      setMessage(err.message || "Upload failed. Please try again.");
-    } finally {
-      setLoading(false);
+    setStatus("Uploading image...");
+
+    // 1. Upload the image to ImgBB first
+    const imageUrl = await uploadToImgBB(selectedFile);
+
+    if (imageUrl) {
+      // 2. If upload is successful, create a post object with the new URL
+      const postData = {
+        caption: caption,
+        imageUrl: imageUrl, // Save the ImgBB URL instead of a file
+        timestamp: new Date(),
+        userId: "test-user-id", // You'll need to replace this with the actual user's ID
+      };
+
+      try {
+        // 3. Add the post data to Firestore
+        await addDoc(collection(db, "posts"), postData);
+        setStatus("Post uploaded successfully!");
+        setCaption("");
+        setSelectedFile(null);
+      } catch (error) {
+        console.error("Error adding document:", error);
+        setStatus("Failed to create post in Firestore.");
+      }
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-white font-sans">
-      <Navbar />
-      
-      <div className="max-w-2xl mx-auto py-6 px-4">
-        <h1 className="text-2xl font-bold mb-6 text-center">Upload New Post</h1>
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white dark:bg-[#111] p-6 rounded shadow-md w-full"
-          encType="multipart/form-data"
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
+      <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">Create a New Post</h1>
+      <form onSubmit={handleSubmit} className="w-full max-w-lg bg-white dark:bg-gray-800 shadow-xl rounded-lg p-8">
+        <div className="mb-6">
+          <label htmlFor="image-upload" className="block text-gray-700 dark:text-gray-200 text-sm font-semibold mb-2">
+            Upload Image
+          </label>
+          <input
+            id="image-upload"
+            type="file"
+            onChange={handleFileChange}
+            accept="image/*"
+            className="w-full text-gray-900 dark:text-gray-100 bg-gray-200 dark:bg-gray-700 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div className="mb-6">
+          <label htmlFor="caption" className="block text-gray-700 dark:text-gray-200 text-sm font-semibold mb-2">
+            Caption
+          </label>
+          <textarea
+            id="caption"
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            rows="3"
+            className="w-full text-gray-900 dark:text-gray-100 bg-gray-200 dark:bg-gray-700 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Write a caption for your post..."
+          />
+        </div>
+        <button
+          type="submit"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out"
         >
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="media" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Media</label>
-              <input
-                id="media"
-                type="file"
-                accept="image/*,video/mp4"
-                onChange={handleFileChange}
-                className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100 dark:file:bg-gray-600 dark:file:text-white"
-              />
-            </div>
-            <div>
-              <label htmlFor="caption" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Caption</label>
-              <input
-                id="caption"
-                type="text"
-                placeholder="Write a caption..."
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-3 dark:bg-gray-700 dark:text-white"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="tags" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tags</label>
-              <input
-                id="tags"
-                type="text"
-                placeholder="e.g., #nature #photography"
-                value={tags}
-                onChange={(e) => setTags(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-3 dark:bg-gray-700 dark:text-white"
-                required
-              />
-            </div>
-          </div>
-          <button
-            type="submit"
-            className="mt-6 w-full bg-green-500 hover:bg-green-600 text-white p-3 rounded disabled:opacity-50 disabled:cursor-not-allowed transition duration-150"
-            disabled={loading}
-          >
-            {loading ? "Uploading..." : "Upload"}
-          </button>
-          {message && (
-            <p className="mt-4 text-center text-sm text-gray-700 dark:text-gray-300">
-              {message}
-            </p>
-          )}
-        </form>
-      </div>
+          Publish Post
+        </button>
+      </form>
 
-      <hr className="my-8 max-w-2xl mx-auto" />
-
-      {/* This section simulates your home feed */}
-      <div className="max-w-2xl mx-auto py-6 px-4">
-        <h2 className="text-2xl font-bold mb-6">Recent Posts</h2>
-        {loadingPosts ? (
-          <p className="text-center text-gray-600 dark:text-gray-400">Loading posts...</p>
-        ) : posts.length === 0 ? (
-          <p className="text-center text-gray-600 dark:text-gray-400">
-            No posts available. Upload one to get started!
-          </p>
-        ) : (
-          posts.map((post) => (
-            <div key={post.id} className="bg-white dark:bg-[#111] p-6 rounded shadow-md mb-4">
-              <p className="font-semibold text-gray-900 dark:text-white mb-2">{post.caption}</p>
-              <p className="text-gray-500 text-sm dark:text-gray-400">Tags: {post.tags}</p>
-              {post.imageUrl && (
-                <img
-                  src={post.imageUrl}
-                  alt={post.caption}
-                  className="mt-4 rounded-lg w-full"
-                />
-              )}
-            </div>
-          ))
-        )}
-      </div>
+      {status && (
+        <div className="mt-4 p-3 rounded-md text-sm bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+          {status}
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default UploadPost;
