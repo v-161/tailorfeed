@@ -115,6 +115,7 @@ export default function UploadPost() {
 } */
 import React, { useState, useContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+
 // FIX: Mocking the imports to make the component runnable in isolation.
 // In a real application, you would need to provide these files.
 const api = {
@@ -209,7 +210,6 @@ export default function UploadPost() {
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-white">
       <Navbar />
-      
       <div className="flex items-center justify-center py-6 px-4">
         <form
           onSubmit={handleSubmit}
@@ -247,7 +247,7 @@ export default function UploadPost() {
             className="w-full p-2 mb-3 border rounded dark:bg-gray-700 dark:text-white"
           />
 
-          <button 
+          <button
             type="submit"
             className="w-full bg-green-500 hover:bg-green-600 text-white p-2 rounded disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={loading}
@@ -264,4 +264,3 @@ export default function UploadPost() {
     </div>
   );
 }
-
