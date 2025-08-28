@@ -1,137 +1,308 @@
-import React, { useState, useEffect } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithCustomToken, signInAnonymously } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+import { useEffect, useState, useContext, useCallback } from "react";
+import { useParams } from "react-router-dom";
+import api from "../api";
+import { AuthContext } from "../context/AuthContext";
+import Navbar from "../components/Navbar";
+import ProfilePost from "../components/ProfilePost";
+import { Swiper, SwiperSlide } from "swiper/react";
+import "swiper/css";
+import "swiper/css/navigation";
+import { Navigation } from "swiper/modules";
 
-// Global variables for Firebase configuration. These are provided by the canvas environment.
-// We check for their existence to prevent errors if running outside the canvas.
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-// The main App component
-const App = () => {
-  // State for user authentication and database connection
-  const [user, setUser] = useState(null);
-  const [db, setDb] = useState(null);
-  const [auth, setAuth] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // State for dark mode
-  const [darkMode, setDarkMode] = useState(false);
-
-  // useEffect to handle Firebase initialization and authentication
-  useEffect(() => {
-    const initializeFirebase = async () => {
-      try {
-        // Initialize the Firebase app with the provided config
-        const app = initializeApp(firebaseConfig);
-        const firestoreDb = getFirestore(app);
-        const firestoreAuth = getAuth(app);
-
-        // Set the database and auth instances in state
-        setDb(firestoreDb);
-        setAuth(firestoreAuth);
-
-        // Authenticate the user. Use the custom token if available, otherwise sign in anonymously.
-        if (initialAuthToken) {
-          await signInWithCustomToken(firestoreAuth, initialAuthToken);
-        } else {
-          await signInAnonymously(firestoreAuth);
-        }
-
-        // Set the current user after successful authentication
-        const currentUser = firestoreAuth.currentUser;
-        if (currentUser) {
-          setUser(currentUser);
-        }
-      } catch (error) {
-        console.error("Firebase initialization or authentication failed:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initializeFirebase();
-  }, []); // Empty dependency array means this effect runs only once on component mount
-
-  // useEffect to sync dark mode state with localStorage and the DOM
-  useEffect(() => {
-    // Check localStorage for a saved dark mode preference
-    const savedMode = localStorage.getItem('darkMode');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const initialMode = savedMode === 'true' || (savedMode === null && prefersDark);
-
-    setDarkMode(initialMode);
-    // Apply the 'dark' class to the html element based on the initial mode
-    document.documentElement.classList.toggle('dark', initialMode);
-  }, []);
-
-  // Function to toggle dark mode
-  const toggleDarkMode = () => {
-    // Invert the dark mode state
-    const newMode = !darkMode;
-    setDarkMode(newMode);
-    // Update the 'dark' class on the html element
-    document.documentElement.classList.toggle('dark', newMode);
-    // Save the new preference to localStorage
-    localStorage.setItem('darkMode', newMode);
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-500">
-        <div className="text-xl text-gray-800 dark:text-gray-200">
-          Loading...
-        </div>
-      </div>
-    );
-  }
+// New PostModal component for displaying enlarged image
+const PostModal = ({ post, onClose }) => {
+  if (!post) return null;
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-500">
-      <nav className="bg-white dark:bg-gray-800 shadow-md p-4 flex justify-between items-center transition-colors duration-500">
-        <div className="text-xl font-bold">
-          My App
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+      <div className="relative p-4 rounded-lg shadow-lg max-w-2xl max-h-full">
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 text-white text-2xl font-bold"
+        >
+          &times;
+        </button>
+        <img
+          src={`${api.defaults.baseURL}/uploads/posts/${post.image}`}
+          alt="Post"
+          className="max-w-full max-h-[80vh] object-contain rounded"
+        />
+        <div className="mt-4 text-white text-center">
+          <p className="text-xl font-bold">{post.caption}</p>
         </div>
-        <div className="flex items-center space-x-4">
-          <p className="hidden md:block text-gray-600 dark:text-gray-400">
-            {user ? `User ID: ${user.uid}` : 'User not logged in'}
-          </p>
-          <button
-            onClick={toggleDarkMode}
-            className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-300"
-            aria-label="Toggle dark mode"
-          >
-            {/* Sun icon for light mode */}
-            {darkMode ? (
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                <path d="M12 2.25a.75.75 0 0 1 .75.75v2.25a.75.75 0 0 1-1.5 0V3a.75.75 0 0 1 .75-.75ZM7.5 12a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM18.894 6.106a.75.75 0 0 0-1.06-1.06l-1.591 1.59a.75.75 0 1 0 1.06 1.061l1.591-1.59ZM21.75 12a.75.75 0 0 1-.75.75h-2.25a.75.75 0 0 1 0-1.5H21a.75.75 0 0 1 .75.75ZM17.154 18.154a.75.75 0 0 0-1.06-1.06l-1.591 1.59a.75.75 0 0 0 1.06 1.06l1.591-1.59ZM12 18.75a.75.75 0 0 1 .75.75v2.25a.75.75 0 0 1-1.5 0v-2.25a.75.75 0 0 1 .75-.75ZM4.293 17.707a.75.75 0 0 0 1.06-1.061l-1.591-1.59a.75.75 0 0 0-1.06 1.06l1.591 1.59ZM3 12a.75.75 0 0 1 .75-.75h2.25a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 12Zm6.106-12.894a.75.75 0 0 0-.69-.516c-.346 0-.69.213-.69.516V3a.75.75 0 0 0 1.5 0V.75a.75.75 0 0 0-.75-.75Z" />
-              </svg>
-            ) : (
-              // Moon icon for dark mode
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                <path fillRule="evenodd" d="M9.507 18.251A8.995 8.995 0 0 1 12 17.25a9.004 9.004 0 0 1-9.754-5.251A8.251 8.251 0 0 0 10.5 19.5c.875 0 1.72-.118 2.522-.33a.75.75 0 1 1 .684 1.488C12.392 20.89 11.455 21 10.5 21a9.75 9.75 0 0 1-9.75-9.75c0-2.02.433-3.931 1.258-5.632A9.006 9.006 0 0 1 12 3a8.995 8.995 0 0 1 2.493 1.251.75.75 0 0 1-.684 1.488A7.505 7.505 0 0 0 12 5.25a7.505 7.505 0 0 0-7.5 7.5c0 1.018.175 2.007.507 2.932a.75.75 0 0 1-.684 1.488A9.75 9.75 0 0 1 1.5 12C1.5 6.477 6.043 2.5 12 2.5s10.5 3.977 10.5 9.25c0 5.273-4.543 9.75-10.5 9.75-1.127 0-2.22-.244-3.26-.708a.75.75 0 1 1 .684-1.488Z" clipRule="evenodd" />
-              </svg>
-            )}
-          </button>
-        </div>
-      </nav>
-
-      <main className="container mx-auto p-8">
-        <h1 className="text-3xl font-bold mb-4">
-          Welcome to Your App
-        </h1>
-        <p className="text-lg">
-          This is a sample page to demonstrate the dark mode functionality.
-          Click the sun or moon icon in the top right corner to toggle the theme.
-        </p>
-        <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-          The application is connected to Firebase Firestore and is authenticated.
-        </p>
-      </main>
+      </div>
     </div>
   );
 };
 
-export default App;
+export default function Profile() {
+  const { id } = useParams();
+  const { user, token } = useContext(AuthContext);
+  const [profile, setProfile] = useState(null);
+  const [posts, setPosts] = useState([]);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [bio, setBio] = useState("");
+  const [avatar, setAvatar] = useState(null);
+  const [selectedPost, setSelectedPost] = useState(null);
+  
+  // --- Fetch profile data ---
+  const fetchProfile = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      let res;
+
+      if (!id || id === String(user?._id)) {
+        res = await api.get("/users/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } else {
+        res = await api.get(`/users/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+
+      setProfile(res.data.user);
+      setPosts(res.data.posts || []);
+      
+      if (user && res.data.user.followers) {
+        setIsFollowing(res.data.user.followers.includes(user._id));
+      }
+      
+      setBio(res.data.user.bio || "");
+    } catch (err) {
+      console.error("Profile fetch error:", err.response?.data || err.message);
+      setError("Could not load profile.");
+    } finally {
+      setLoading(false);
+    }
+  }, [id, token, user]);
+
+  useEffect(() => {
+    if (user && token) {
+      fetchProfile();
+    }
+  }, [fetchProfile, user, token, id]);
+
+  // --- Handle profile update ---
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    try {
+      const formData = new FormData();
+      formData.append("bio", bio);
+      if (avatar) {
+        formData.append("avatar", avatar);
+      }
+
+      const res = await api.put("/users/profile", formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      console.log("Update response:", res.data);
+      setProfile(res.data.user);
+      setEditing(false);
+      setAvatar(null);
+      
+      fetchProfile(); 
+    } catch (err) {
+      console.error("Profile update failed:", err.response?.data || err.message);
+      setError("Profile update failed. Please try again.");
+    }
+  };
+
+  // --- Function to handle canceling the bio edit ---
+  const handleCancel = () => {
+    setEditing(false);
+    setAvatar(null);
+    setBio(profile.bio || "");
+  };
+
+  // --- Follow/Unfollow ---
+  const handleFollow = async () => {
+    try {
+      if (isFollowing) {
+        await api.post(
+          `/users/${id}/unfollow`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } else {
+        await api.post(
+          `/users/${id}/follow`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+      
+      setIsFollowing(!isFollowing);
+      
+      fetchProfile();
+    } catch (err) {
+      console.error("Follow error:", err.response?.data || err.message);
+      setError("Failed to update follow status.");
+    }
+  };
+
+  // --- UI states ---
+  if (loading) return (
+    <div className="min-h-screen bg-gray-100 dark:bg-black">
+      <Navbar />
+      <p className="text-center mt-10">Loading...</p>
+    </div>
+  );
+  
+  if (error) return (
+    <div className="min-h-screen bg-gray-100 dark:bg-black">
+      <Navbar />
+      <p className="text-center mt-10 text-red-500">{error}</p>
+    </div>
+  );
+  
+  if (!profile) return (
+    <div className="min-h-screen bg-gray-100 dark:bg-black">
+      <Navbar />
+      <p className="text-center mt-10">No profile found.</p>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-black dark:text-white">
+      <Navbar />
+      <div className="max-w-3xl mx-auto py-6 px-4">
+        {/* Profile Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <img
+              src={
+                profile.avatar
+                  ? `${api.defaults.baseURL}/uploads/avatars/${profile.avatar}`
+                  : "https://placehold.co/100x100/A0AEC0/000000?text=Avatar"
+              }
+              alt="avatar"
+              className="w-24 h-24 rounded-full object-cover"
+            />
+            <div>
+              <h1 className="text-2xl font-bold">{profile.username}</h1>
+              <p className="text-gray-600 dark:text-gray-300">{profile.email}</p>
+              <p className="mt-2">{profile.bio || "No bio yet."}</p>
+              {profile._id === user._id && (
+                <button
+                  onClick={() => setEditing(true)}
+                  className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Edit Profile
+                </button>
+              )}
+            </div>
+          </div>
+          {profile._id !== user._id && (
+            <button
+              onClick={handleFollow}
+              className={`px-4 py-2 rounded ${
+                isFollowing ? "bg-red-500 hover:bg-red-600" : "bg-blue-500 hover:bg-blue-600"
+              } text-white transition-colors`}
+            >
+              {isFollowing ? "Unfollow" : "Follow"}
+            </button>
+          )}
+        </div>
+
+        <p className="mb-2">Followers: {profile.followers?.length || 0}</p>
+        <p className="mb-6">Following: {profile.following?.length || 0}</p>
+
+        {/* Posts Swiper */}
+        <h3 className="text-xl font-semibold mb-4">Posts</h3>
+        {posts.length === 0 ? (
+          <p className="text-center text-gray-600 dark:text-gray-400">
+            No posts found for this user.
+          </p>
+        ) : (
+          <div className="relative">
+            <Swiper
+              navigation={true}
+              modules={[Navigation]}
+              slidesPerView={1}
+              spaceBetween={10}
+              className="mySwiper"
+              breakpoints={{
+                640: {
+                  slidesPerView: 2,
+                  spaceBetween: 20,
+                },
+                768: {
+                  slidesPerView: 3,
+                  spaceBetween: 30,
+                },
+              }}
+            >
+              {posts.map((post) => (
+                <SwiperSlide key={post._id}>
+                  <div onClick={() => setSelectedPost(post)} className="cursor-pointer">
+                    <ProfilePost post={post} />
+                  </div>
+                </SwiperSlide>
+              ))}
+            </Swiper>
+          </div>
+        )}
+
+        {/* Edit Profile Modal */}
+        {editing && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]">
+            <form
+              onSubmit={handleUpdate}
+              className="bg-white p-6 rounded-lg shadow-lg w-96 dark:bg-[#111]"
+            >
+              <h2 className="text-xl font-bold mb-4 text-black dark:text-white">
+                Edit Profile
+              </h2>
+              <label className="block mb-2 text-black dark:text-gray-200">Bio</label>
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                className="w-full p-2 rounded border border-gray-300 dark:bg-gray-700 dark:text-white"
+                rows="4"
+              />
+              <label className="block mt-4 mb-2 text-black dark:text-gray-200">
+                Avatar
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setAvatar(e.target.files[0])}
+                className="mb-4 w-full"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Post Modal for enlarged image view */}
+        <PostModal
+          post={selectedPost}
+          onClose={() => setSelectedPost(null)}
+        />
+      </div>
+    </div>
+  );
+}
