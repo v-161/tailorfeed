@@ -1,89 +1,25 @@
 import React, { useEffect, useState, useContext, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
-const api = {
-  get: async (url, config) => {
-    console.log(`GET request to: ${url}`);
-    if (url.includes("/users/profile") || url.includes("/users/")) {
-      return {
-        data: {
-          user: {
-            _id: "user123",
-            username: "testuser",
-            email: "test@example.com",
-            bio: "This is a test bio.",
-            avatar: {
-              secure_url: "https://res.cloudinary.com/demo/image/upload/v1600000000/sample.jpg"
-            },
-            followers: ["follower1", "follower2"],
-            following: ["following1"],
-          },
-          posts: [
-            {
-              _id: "post1",
-              caption: "First post!",
-              media: [
-                {
-                  secure_url: "https://res.cloudinary.com/demo/image/upload/v1600000000/cat.jpg",
-                  type: "image"
-                }
-              ]
-            },
-            {
-              _id: "post2",
-              caption: "Second post!",
-              media: [
-                {
-                  secure_url: "https://res.cloudinary.com/demo/video/upload/v1600000000/dog.mp4",
-                  type: "video"
-                }
-              ]
-            }
-          ]
-        }
-      };
-    }
-    return {};
-  },
-  put: async (url, data, config) => {
-    console.log(`PUT request to: ${url}`);
-    return { data: { user: { ...data, bio: data.get("bio") } } };
-  },
-  post: async (url, data, config) => {
-    console.log(`POST request to: ${url}`);
-    return {};
-  }
-};
-const AuthContext = React.createContext({
-  user: { _id: "user123", username: "testuser" },
-  token: "fake-token"
-});
-const Navbar = () => (
-  <nav className="bg-white dark:bg-gray-800 shadow-md p-4">
-    <div className="container mx-auto flex justify-between items-center">
-      <div className="text-xl font-bold text-gray-800 dark:text-white">
-        My App
-      </div>
-      <div className="flex gap-4">
-        <a href="#" className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white">Home</a>
-        <a href="#" className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white">Profile</a>
-        <a href="#" className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white">Logout</a>
-      </div>
-    </div>
-  </nav>
-);
-const ProfilePost = ({ post }) => (
-  <div className="relative w-full h-48 overflow-hidden rounded-lg shadow-md">
+import axios from "axios";
+import { AuthContext } from "../context/AuthContext";
+
+// Thumbnail of profile posts
+const ProfilePost = ({ post, onClick }) => (
+  <div
+    className="relative w-full h-48 overflow-hidden rounded-lg shadow-md cursor-pointer"
+    onClick={() => onClick(post)}
+  >
     {post.media && post.media.length > 0 ? (
       post.media[0].type === "image" ? (
         <img
-          src={post.media[0].secure_url}
+          src={`http://localhost:5000${post.media[0].url}`}
           alt="post thumbnail"
           className="w-full h-full object-cover"
         />
       ) : (
         <video
-          src={post.media[0].secure_url}
+          src={`http://localhost:5000${post.media[0].url}`}
           className="w-full h-full object-cover"
           poster="https://placehold.co/400x400/A0AEC0/000000?text=Video"
         />
@@ -96,12 +32,10 @@ const ProfilePost = ({ post }) => (
   </div>
 );
 
-
-// New PostModal component for displaying enlarged image
+// Modal for enlarged post preview
 const PostModal = ({ post, onClose }) => {
   if (!post || !post.media || post.media.length === 0) return null;
 
-  // The media array now contains objects with secure_url
   const mediaItem = post.media[0];
 
   return (
@@ -115,18 +49,20 @@ const PostModal = ({ post, onClose }) => {
         </button>
         {mediaItem.type === "image" ? (
           <img
-            // FIX: Use the secure_url from the media object
-            src={mediaItem.secure_url}
+            src={`http://localhost:5000${mediaItem.url}`}
             alt="Enlarged Post"
             className="max-w-full max-h-[80vh] object-contain rounded"
           />
         ) : (
           <video
-            src={mediaItem.secure_url}
+            src={`http://localhost:5000${mediaItem.url}`}
             controls
             className="max-w-full max-h-[80vh] object-contain rounded"
           >
-            <source src={mediaItem.secure_url} type="video/mp4" />
+            <source
+              src={`http://localhost:5000${mediaItem.url}`}
+              type="video/mp4"
+            />
           </video>
         )}
         <div className="mt-4 text-white text-center">
@@ -140,6 +76,7 @@ const PostModal = ({ post, onClose }) => {
 export default function Profile() {
   const { id } = useParams();
   const { user, token } = useContext(AuthContext);
+
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -150,19 +87,19 @@ export default function Profile() {
   const [avatar, setAvatar] = useState(null);
   const [selectedPost, setSelectedPost] = useState(null);
 
-  // --- Fetch profile data ---
+  // Fetch profile data
   const fetchProfile = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      let res;
 
+      let res;
       if (!id || id === String(user?._id)) {
-        res = await api.get("/users/profile", {
+        res = await axios.get("http://localhost:5000/users/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else {
-        res = await api.get(`/users/${id}`, {
+        res = await axios.get(`http://localhost:5000/users/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
       }
@@ -189,7 +126,7 @@ export default function Profile() {
     }
   }, [fetchProfile, user, token, id]);
 
-  // --- Handle profile update ---
+  // Update profile
   const handleUpdate = async (e) => {
     e.preventDefault();
     try {
@@ -199,18 +136,16 @@ export default function Profile() {
         formData.append("avatar", avatar);
       }
 
-      const res = await api.put("/users/profile", formData, {
+      const res = await axios.put("http://localhost:5000/users/profile", formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
         },
       });
 
-      console.log("Update response:", res.data);
       setProfile(res.data.user);
       setEditing(false);
       setAvatar(null);
-
       fetchProfile();
     } catch (err) {
       console.error("Profile update failed:", err.response?.data || err.message);
@@ -218,172 +153,88 @@ export default function Profile() {
     }
   };
 
-  // --- Function to handle canceling the bio edit ---
+  // Cancel edit
   const handleCancel = () => {
     setEditing(false);
     setAvatar(null);
     setBio(profile.bio || "");
   };
 
-  // --- Follow/Unfollow ---
-  const handleFollow = async () => {
-    try {
-      if (isFollowing) {
-        await api.post(
-          `/users/${id}/unfollow`,
-          {},
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      } else {
-        await api.post(
-          `/users/${id}/follow`,
-          {},
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      }
-
-      setIsFollowing(!isFollowing);
-
-      fetchProfile();
-    } catch (err) {
-      console.error("Follow error:", err.response?.data || err.message);
-      setError("Failed to update follow status.");
-    }
-  };
-
-  // --- UI states ---
-  if (loading) return (
-    <div className="min-h-screen bg-gray-100 dark:bg-black">
-      <Navbar />
-      <p className="text-center mt-10">Loading...</p>
-    </div>
-  );
-
-  if (error) return (
-    <div className="min-h-screen bg-gray-100 dark:bg-black">
-      <Navbar />
-      <p className="text-center mt-10 text-red-500">{error}</p>
-    </div>
-  );
-
-  if (!profile) return (
-    <div className="min-h-screen bg-gray-100 dark:bg-black">
-      <Navbar />
-      <p className="text-center mt-10">No profile found.</p>
-    </div>
-  );
+  if (loading) return <p className="text-center p-6">Loading...</p>;
+  if (error) return <p className="text-center text-red-500 p-6">{error}</p>;
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-black dark:text-white">
+    <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-white">
       <Navbar />
-      <div className="max-w-3xl mx-auto py-6 px-4">
+
+      <div className="max-w-4xl mx-auto p-6">
         {/* Profile Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <img
-              // FIX: Use the secure_url from the Cloudinary response
-              src={
-                profile.avatar?.secure_url || "https://placehold.co/100x100/A0AEC0/000000?text=Avatar"
-              }
-              alt="avatar"
-              className="w-24 h-24 rounded-full object-cover"
-            />
-            <div>
-              <h1 className="text-2xl font-bold">{profile.username}</h1>
-              <p className="text-gray-600 dark:text-gray-300">{profile.email}</p>
-              <p className="mt-2">{profile.bio || "No bio yet."}</p>
-              {profile._id === user._id && (
-                <button
-                  onClick={() => setEditing(true)}
-                  className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Edit Profile
-                </button>
-              )}
-            </div>
+        <div className="flex items-center gap-6">
+          <img
+            src={
+              profile?.avatar?.url
+                ? `http://localhost:5000${profile.avatar.url}`
+                : "https://placehold.co/100x100?text=Avatar"
+            }
+            alt="avatar"
+            className="w-24 h-24 rounded-full object-cover border"
+          />
+          <div>
+            <h2 className="text-2xl font-bold">{profile?.username}</h2>
+            <p className="text-gray-600 dark:text-gray-400">{profile?.email}</p>
+            <p className="mt-2">{profile?.bio}</p>
           </div>
-          {profile._id !== user._id && (
-            <button
-              onClick={handleFollow}
-              className={`px-4 py-2 rounded ${
-                isFollowing ? "bg-red-500 hover:bg-red-600" : "bg-blue-500 hover:bg-blue-600"
-              } text-white transition-colors`}
-            >
-              {isFollowing ? "Unfollow" : "Follow"}
-            </button>
-          )}
         </div>
 
-        <p className="mb-2">Followers: {profile.followers?.length || 0}</p>
-        <p className="mb-6">Following: {profile.following?.length || 0}</p>
+        {/* Edit profile */}
+        {id === String(user?._id) && (
+          <div className="mt-6">
+            {editing ? (
+              <form onSubmit={handleUpdate} className="space-y-4">
+                <textarea
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  className="w-full p-2 border rounded text-black"
+                />
+                <input
+                  type="file"
+                  onChange={(e) => setAvatar(e.target.files[0])}
+                  className="block"
+                />
+                <div className="flex gap-2">
+                  <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    className="bg-gray-500 text-white px-4 py-2 rounded"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <button
+                onClick={() => setEditing(true)}
+                className="mt-4 bg-gray-800 text-white px-4 py-2 rounded"
+              >
+                Edit Profile
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Posts Grid */}
-        <h3 className="text-xl font-semibold mb-4">Posts</h3>
-        {posts.length === 0 ? (
-          <p className="text-center text-gray-600 dark:text-gray-400">
-            No posts found for this user.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {posts.map((post) => (
-              <div key={post._id} onClick={() => setSelectedPost(post)} className="cursor-pointer">
-                <ProfilePost post={post} />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Edit Profile Modal */}
-        {editing && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]">
-            <form
-              onSubmit={handleUpdate}
-              className="bg-white p-6 rounded-lg shadow-lg w-96 dark:bg-[#111]"
-            >
-              <h2 className="text-xl font-bold mb-4 text-black dark:text-white">
-                Edit Profile
-              </h2>
-              <label className="block mb-2 text-black dark:text-gray-200">Bio</label>
-              <textarea
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                className="w-full p-2 rounded border border-gray-300 dark:bg-gray-700 dark:text-white"
-                rows="4"
-              />
-              <label className="block mt-4 mb-2 text-black dark:text-gray-200">
-                Avatar
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setAvatar(e.target.files[0])}
-                className="mb-4 w-full"
-              />
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Save
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Post Modal for enlarged image view */}
-        <PostModal
-          post={selectedPost}
-          onClose={() => setSelectedPost(null)}
-        />
+        <div className="mt-8 grid grid-cols-3 gap-4">
+          {posts.map((post) => (
+            <ProfilePost key={post._id} post={post} onClick={setSelectedPost} />
+          ))}
+        </div>
       </div>
+
+      {/* Modal */}
+      {selectedPost && <PostModal post={selectedPost} onClose={() => setSelectedPost(null)} />}
     </div>
   );
 }
