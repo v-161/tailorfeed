@@ -1,4 +1,5 @@
 import React, { useState, useContext } from "react";
+import Navbar from "../components/Navbar";
 import { useNavigate } from "react-router-dom";
 
 // FIX: Mocking the imports to make the component runnable in isolation.
