@@ -10,8 +10,10 @@ import Navbar from "../components/Navbar";
 const IMGBB_API_KEY = "28a32508b8289106a69481044e67a173";
 
 // Firebase configuration from your environment variables
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+// To fix the "not defined" error, we wrap the global variables in an evaluation check.
+// This allows the code to compile locally and use the platform's injected variables when deployed.
+const firebaseConfig = typeof window.__firebase_config !== 'undefined' ? JSON.parse(window.__firebase_config) : {};
+const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
