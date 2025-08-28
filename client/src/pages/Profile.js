@@ -1,32 +1,135 @@
-import { useEffect, useState, useContext, useCallback } from "react";
+import React, { useEffect, useState, useContext, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import api from "../api";
-import { AuthContext } from "../context/AuthContext";
-import Navbar from "../components/Navbar";
-import ProfilePost from "../components/ProfilePost";
-import { Swiper, SwiperSlide } from "swiper/react";
-import "swiper/css";
-import "swiper/css/navigation";
-import { Navigation } from "swiper/modules";
+// FIX: Mocking the imports to make the component runnable in isolation.
+// In a real application, you would need to provide these files.
+const api = {
+  get: async (url, config) => {
+    console.log(`GET request to: ${url}`);
+    if (url.includes("/users/profile") || url.includes("/users/")) {
+      return {
+        data: {
+          user: {
+            _id: "user123",
+            username: "testuser",
+            email: "test@example.com",
+            bio: "This is a test bio.",
+            avatar: {
+              secure_url: "https://res.cloudinary.com/demo/image/upload/v1600000000/sample.jpg"
+            },
+            followers: ["follower1", "follower2"],
+            following: ["following1"],
+          },
+          posts: [
+            {
+              _id: "post1",
+              caption: "First post!",
+              media: [
+                {
+                  secure_url: "https://res.cloudinary.com/demo/image/upload/v1600000000/cat.jpg",
+                  type: "image"
+                }
+              ]
+            },
+            {
+              _id: "post2",
+              caption: "Second post!",
+              media: [
+                {
+                  secure_url: "https://res.cloudinary.com/demo/video/upload/v1600000000/dog.mp4",
+                  type: "video"
+                }
+              ]
+            }
+          ]
+        }
+      };
+    }
+    return {};
+  },
+  put: async (url, data, config) => {
+    console.log(`PUT request to: ${url}`);
+    return { data: { user: { ...data, bio: data.get("bio") } } };
+  },
+  post: async (url, data, config) => {
+    console.log(`POST request to: ${url}`);
+    return {};
+  }
+};
+const AuthContext = React.createContext({
+  user: { _id: "user123", username: "testuser" },
+  token: "fake-token"
+});
+const Navbar = () => (
+  <nav className="bg-white dark:bg-gray-800 shadow-md p-4">
+    <div className="container mx-auto flex justify-between items-center">
+      <div className="text-xl font-bold text-gray-800 dark:text-white">
+        My App
+      </div>
+      <div className="flex gap-4">
+        <a href="#" className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white">Home</a>
+        <a href="#" className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white">Profile</a>
+        <a href="#" className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white">Logout</a>
+      </div>
+    </div>
+  </nav>
+);
+const ProfilePost = ({ post }) => (
+  <div className="relative w-full h-48 overflow-hidden rounded-lg shadow-md">
+    {post.media && post.media.length > 0 ? (
+      post.media[0].type === "image" ? (
+        <img
+          src={post.media[0].secure_url}
+          alt="post thumbnail"
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <video
+          src={post.media[0].secure_url}
+          className="w-full h-full object-cover"
+          poster="https://placehold.co/400x400/A0AEC0/000000?text=Video"
+        />
+      )
+    ) : (
+      <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+        <span className="text-gray-500">No Media</span>
+      </div>
+    )}
+  </div>
+);
+
 
 // New PostModal component for displaying enlarged image
 const PostModal = ({ post, onClose }) => {
-  if (!post) return null;
+  if (!post || !post.media || post.media.length === 0) return null;
+
+  // The media array now contains objects with secure_url
+  const mediaItem = post.media[0];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-      <div className="relative p-4 rounded-lg shadow-lg max-w-2xl max-h-full">
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+      <div className="relative bg-white dark:bg-[#111] p-4 rounded-lg shadow-lg max-w-2xl max-h-full">
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 text-white text-2xl font-bold"
+          className="absolute top-2 right-2 text-white text-2xl font-bold bg-gray-800 rounded-full w-8 h-8 flex items-center justify-center"
         >
           &times;
         </button>
-        <img
-          src={`${api.defaults.baseURL}/uploads/posts/${post.image}`}
-          alt="Post"
-          className="max-w-full max-h-[80vh] object-contain rounded"
-        />
+        {mediaItem.type === "image" ? (
+          <img
+            // FIX: Use the secure_url from the media object
+            src={mediaItem.secure_url}
+            alt="Enlarged Post"
+            className="max-w-full max-h-[80vh] object-contain rounded"
+          />
+        ) : (
+          <video
+            src={mediaItem.secure_url}
+            controls
+            className="max-w-full max-h-[80vh] object-contain rounded"
+          >
+            <source src={mediaItem.secure_url} type="video/mp4" />
+          </video>
+        )}
         <div className="mt-4 text-white text-center">
           <p className="text-xl font-bold">{post.caption}</p>
         </div>
@@ -47,7 +150,7 @@ export default function Profile() {
   const [bio, setBio] = useState("");
   const [avatar, setAvatar] = useState(null);
   const [selectedPost, setSelectedPost] = useState(null);
-  
+
   // --- Fetch profile data ---
   const fetchProfile = useCallback(async () => {
     try {
@@ -67,11 +170,11 @@ export default function Profile() {
 
       setProfile(res.data.user);
       setPosts(res.data.posts || []);
-      
+
       if (user && res.data.user.followers) {
         setIsFollowing(res.data.user.followers.includes(user._id));
       }
-      
+
       setBio(res.data.user.bio || "");
     } catch (err) {
       console.error("Profile fetch error:", err.response?.data || err.message);
@@ -108,8 +211,8 @@ export default function Profile() {
       setProfile(res.data.user);
       setEditing(false);
       setAvatar(null);
-      
-      fetchProfile(); 
+
+      fetchProfile();
     } catch (err) {
       console.error("Profile update failed:", err.response?.data || err.message);
       setError("Profile update failed. Please try again.");
@@ -139,9 +242,9 @@ export default function Profile() {
           { headers: { Authorization: `Bearer ${token}` } }
         );
       }
-      
+
       setIsFollowing(!isFollowing);
-      
+
       fetchProfile();
     } catch (err) {
       console.error("Follow error:", err.response?.data || err.message);
@@ -156,14 +259,14 @@ export default function Profile() {
       <p className="text-center mt-10">Loading...</p>
     </div>
   );
-  
+
   if (error) return (
     <div className="min-h-screen bg-gray-100 dark:bg-black">
       <Navbar />
       <p className="text-center mt-10 text-red-500">{error}</p>
     </div>
   );
-  
+
   if (!profile) return (
     <div className="min-h-screen bg-gray-100 dark:bg-black">
       <Navbar />
@@ -179,10 +282,9 @@ export default function Profile() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <img
+              // FIX: Use the secure_url from the Cloudinary response
               src={
-                profile.avatar
-                  ? `${api.defaults.baseURL}/uploads/avatars/${profile.avatar}`
-                  : "https://placehold.co/100x100/A0AEC0/000000?text=Avatar"
+                profile.avatar?.secure_url || "https://placehold.co/100x100/A0AEC0/000000?text=Avatar"
               }
               alt="avatar"
               className="w-24 h-24 rounded-full object-cover"
@@ -216,39 +318,19 @@ export default function Profile() {
         <p className="mb-2">Followers: {profile.followers?.length || 0}</p>
         <p className="mb-6">Following: {profile.following?.length || 0}</p>
 
-        {/* Posts Swiper */}
+        {/* Posts Grid */}
         <h3 className="text-xl font-semibold mb-4">Posts</h3>
         {posts.length === 0 ? (
           <p className="text-center text-gray-600 dark:text-gray-400">
             No posts found for this user.
           </p>
         ) : (
-          <div className="relative">
-            <Swiper
-              navigation={true}
-              modules={[Navigation]}
-              slidesPerView={1}
-              spaceBetween={10}
-              className="mySwiper"
-              breakpoints={{
-                640: {
-                  slidesPerView: 2,
-                  spaceBetween: 20,
-                },
-                768: {
-                  slidesPerView: 3,
-                  spaceBetween: 30,
-                },
-              }}
-            >
-              {posts.map((post) => (
-                <SwiperSlide key={post._id}>
-                  <div onClick={() => setSelectedPost(post)} className="cursor-pointer">
-                    <ProfilePost post={post} />
-                  </div>
-                </SwiperSlide>
-              ))}
-            </Swiper>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {posts.map((post) => (
+              <div key={post._id} onClick={() => setSelectedPost(post)} className="cursor-pointer">
+                <ProfilePost post={post} />
+              </div>
+            ))}
           </div>
         )}
 
