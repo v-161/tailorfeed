@@ -1,5 +1,5 @@
-import React, { useState, useContext, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useContext } from "react";
+import { BrowserRouter as Router, useNavigate } from "react-router-dom";
 
 // FIX: Mocking the imports to make the component runnable in isolation.
 // In a real application, you would need to provide these files.
@@ -7,8 +7,13 @@ const api = {
   post: async (url, formData, config) => {
     console.log(`POST request to: ${url}`);
     console.log("FormData:", Object.fromEntries(formData));
-    return { data: { message: "Success" } };
-  }
+    // Simulate a successful API response
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({ data: { message: "Success" } });
+      }, 1000);
+    });
+  },
 };
 const AuthContext = React.createContext({ token: "fake-token" });
 const Navbar = () => (
@@ -26,11 +31,11 @@ const Navbar = () => (
   </nav>
 );
 
-export default function UploadPost() {
+function UploadPost() {
   // Use context to get the user's authentication token
   const { token } = useContext(AuthContext);
   // State for the selected media file, caption, tags, and message
-  const [media, setMedia] = useState(null); // Changed to a single file object
+  const [media, setMedia] = useState(null);
   const [caption, setCaption] = useState("");
   const [tags, setTags] = useState("");
   const [message, setMessage] = useState("");
@@ -40,7 +45,6 @@ export default function UploadPost() {
 
   // Handler for file input changes
   const handleFileChange = (e) => {
-    // FIX: Only handle the first selected file as per new backend
     const file = e.target.files[0];
     if (file) {
       setMedia(file);
@@ -66,7 +70,7 @@ export default function UploadPost() {
       formData.append("media", media);
       // Append the caption and tags
       formData.append("caption", caption);
-      // FIX: Ensure tags are a comma-separated string
+      // Ensure tags are a comma-separated string
       formData.append("tags", tags);
 
       // Make a POST request to the upload endpoint
@@ -147,5 +151,14 @@ export default function UploadPost() {
         </form>
       </div>
     </div>
+  );
+}
+
+// This is the component that will be rendered
+export default function App() {
+  return (
+    <Router>
+      <UploadPost />
+    </Router>
   );
 }
