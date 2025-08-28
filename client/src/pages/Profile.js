@@ -1,308 +1,301 @@
-import { useEffect, useState, useContext, useCallback } from "react";
-import { useParams } from "react-router-dom";
-import api from "../api";
-import { AuthContext } from "../context/AuthContext";
-import Navbar from "../components/Navbar";
-import ProfilePost from "../components/ProfilePost";
-import { Swiper, SwiperSlide } from "swiper/react";
-import "swiper/css";
-import "swiper/css/navigation";
-import { Navigation } from "swiper/modules";
+import React, { useState, useEffect, createContext, useContext } from 'react';
+import { getAuth, signInWithCustomToken, signInAnonymously } from 'firebase/auth';
+import { getFirestore, doc, setDoc, collection, query, onSnapshot } from 'firebase/firestore';
+import { initializeApp } from 'firebase/app';
 
-// New PostModal component for displaying enlarged image
-const PostModal = ({ post, onClose }) => {
-  if (!post) return null;
+// The following global variables are provided by the canvas environment.
+// We must check if they exist before using them.
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+// AuthContext for user authentication state.
+const AuthContext = createContext(null);
+
+// AuthProvider component to manage Firebase authentication.
+const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Initialize Firebase app
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Sign in with custom token or anonymously
+    const signIn = async () => {
+      try {
+        if (initialAuthToken) {
+          await signInWithCustomToken(auth, initialAuthToken);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (error) {
+        console.error("Error signing in:", error);
+      }
+    };
+
+    const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        // Save user data to Firestore
+        const userId = currentUser.uid;
+        const userDocRef = doc(db, 'users', userId);
+        await setDoc(userDocRef, {
+          uid: currentUser.uid,
+          email: currentUser.email || 'anonymous',
+        }, { merge: true });
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    signIn();
+
+    return () => unsubscribe();
+  }, []);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-      <div className="relative p-4 rounded-lg shadow-lg max-w-2xl max-h-full">
-        <button
-          onClick={onClose}
-          className="absolute top-2 right-2 text-white text-2xl font-bold"
-        >
-          &times;
-        </button>
+    <AuthContext.Provider value={{ user, loading }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+// Navbar component.
+const Navbar = () => {
+  const { user } = useContext(AuthContext);
+
+  const navItems = [
+    { name: 'Home', href: '#' },
+    { name: 'Profile', href: '#' },
+    { name: 'Settings', href: '#' },
+  ];
+
+  return (
+    <nav className="bg-white shadow-lg fixed top-0 left-0 right-0 z-50">
+      <div className="container mx-auto px-4 py-3 md:flex md:justify-between md:items-center">
+        <div className="flex items-center justify-between">
+          <a href="#" className="text-2xl font-bold text-gray-800 transition-colors duration-300 transform hover:text-blue-500">
+            SocialApp
+          </a>
+          <div className="md:hidden">
+            <button type="button" className="text-gray-500 hover:text-gray-600 focus:outline-none focus:text-gray-600">
+              <svg viewBox="0 0 24 24" className="w-6 h-6 fill-current">
+                <path fillRule="evenodd" d="M4 5h16a1 1 0 010 2H4a1 1 0 110-2zm0 6h16a1 1 0 010 2H4a1 1 0 010-2zm0 6h16a1 1 0 010 2H4a1 1 0 010-2z" clipRule="evenodd"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div className="md:flex items-center">
+          <div className="flex flex-col md:flex-row md:mx-6">
+            {navItems.map((item, index) => (
+              <a key={index} href={item.href} className="my-1 text-gray-700 hover:text-blue-500 md:mx-4 transition-colors duration-300 transform">
+                {item.name}
+              </a>
+            ))}
+          </div>
+          <div className="relative">
+            {user ? (
+              <div className="flex items-center space-x-2">
+                <span className="text-gray-800 text-sm">Hi, {user.uid.substring(0, 8)}...</span>
+                <img className="w-8 h-8 rounded-full border border-gray-300" src="https://placehold.co/100x100/A0AEC0/ffffff?text=U" alt="Profile Picture" />
+              </div>
+            ) : (
+              <span className="text-gray-800 text-sm">Signing in...</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+};
+
+// Custom Carousel component to display images.
+const ImageCarousel = ({ images }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const nextSlide = () => {
+    setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
+  };
+
+  const prevSlide = () => {
+    setCurrentIndex((prevIndex) => (prevIndex - 1 + images.length) % images.length);
+  };
+
+  return (
+    <div className="relative w-full h-96 overflow-hidden rounded-md">
+      {images.map((img, index) => (
         <img
-          src={`${api.defaults.baseURL}/uploads/posts/${post.image}`}
-          alt="Post"
-          className="max-w-full max-h-[80vh] object-contain rounded"
+          key={index}
+          src={img}
+          alt={`Post image ${index + 1}`}
+          className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-500 ease-in-out ${
+            index === currentIndex ? 'opacity-100' : 'opacity-0'
+          }`}
         />
-        <div className="mt-4 text-white text-center">
-          <p className="text-xl font-bold">{post.caption}</p>
+      ))}
+      <button
+        onClick={prevSlide}
+        className="absolute top-1/2 left-4 -translate-y-1/2 bg-white/30 text-white p-2 rounded-full hover:bg-white/50 transition"
+      >
+        &#9664;
+      </button>
+      <button
+        onClick={nextSlide}
+        className="absolute top-1/2 right-4 -translate-y-1/2 bg-white/30 text-white p-2 rounded-full hover:bg-white/50 transition"
+      >
+        &#9654;
+      </button>
+    </div>
+  );
+};
+
+// ProfilePost component to display a single post.
+const ProfilePost = ({ post }) => {
+  return (
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden transition-transform transform hover:scale-105">
+      <div className="relative">
+        <ImageCarousel images={post.images} />
+      </div>
+      <div className="p-4">
+        <div className="flex items-center mb-4">
+          <img src={post.profileImage} alt="Profile" className="w-10 h-10 rounded-full object-cover border-2 border-blue-500" />
+          <div className="ml-3">
+            <h4 className="font-bold text-gray-800">{post.username}</h4>
+            <p className="text-sm text-gray-500">{post.timestamp}</p>
+          </div>
+        </div>
+        <p className="text-gray-700 leading-relaxed mb-4">{post.content}</p>
+        <div className="flex items-center space-x-4 text-gray-500">
+          <div className="flex items-center space-x-1 hover:text-blue-500 cursor-pointer transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+            </svg>
+            <span>{post.likes}</span>
+          </div>
+          <div className="flex items-center space-x-1 hover:text-blue-500 cursor-pointer transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.536 12.279 2 10.165 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7z" clipRule="evenodd" />
+            </svg>
+            <span>{post.comments}</span>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default function Profile() {
-  const { id } = useParams();
-  const { user, token } = useContext(AuthContext);
-  const [profile, setProfile] = useState(null);
+const ProfilePage = () => {
+  const { user, loading } = useContext(AuthContext);
   const [posts, setPosts] = useState([]);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [editing, setEditing] = useState(false);
-  const [bio, setBio] = useState("");
-  const [avatar, setAvatar] = useState(null);
-  const [selectedPost, setSelectedPost] = useState(null);
-  
-  // --- Fetch profile data ---
-  const fetchProfile = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      let res;
-
-      if (!id || id === String(user?._id)) {
-        res = await api.get("/users/profile", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } else {
-        res = await api.get(`/users/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      }
-
-      setProfile(res.data.user);
-      setPosts(res.data.posts || []);
-      
-      if (user && res.data.user.followers) {
-        setIsFollowing(res.data.user.followers.includes(user._id));
-      }
-      
-      setBio(res.data.user.bio || "");
-    } catch (err) {
-      console.error("Profile fetch error:", err.response?.data || err.message);
-      setError("Could not load profile.");
-    } finally {
-      setLoading(false);
-    }
-  }, [id, token, user]);
 
   useEffect(() => {
-    if (user && token) {
-      fetchProfile();
-    }
-  }, [fetchProfile, user, token, id]);
+    if (user) {
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const postsCollection = collection(db, `artifacts/${appId}/public/data/posts`);
 
-  // --- Handle profile update ---
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-    try {
-      const formData = new FormData();
-      formData.append("bio", bio);
-      if (avatar) {
-        formData.append("avatar", avatar);
-      }
-
-      const res = await api.put("/users/profile", formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        },
+      const q = query(postsCollection);
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const fetchedPosts = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setPosts(fetchedPosts);
       });
 
-      console.log("Update response:", res.data);
-      setProfile(res.data.user);
-      setEditing(false);
-      setAvatar(null);
-      
-      fetchProfile(); 
-    } catch (err) {
-      console.error("Profile update failed:", err.response?.data || err.message);
-      setError("Profile update failed. Please try again.");
+      // Cleanup listener on component unmount
+      return () => unsubscribe();
     }
-  };
+  }, [user]);
 
-  // --- Function to handle canceling the bio edit ---
-  const handleCancel = () => {
-    setEditing(false);
-    setAvatar(null);
-    setBio(profile.bio || "");
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <div className="text-lg font-semibold text-gray-700">Loading...</div>
+      </div>
+    );
+  }
 
-  // --- Follow/Unfollow ---
-  const handleFollow = async () => {
-    try {
-      if (isFollowing) {
-        await api.post(
-          `/users/${id}/unfollow`,
-          {},
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      } else {
-        await api.post(
-          `/users/${id}/follow`,
-          {},
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      }
-      
-      setIsFollowing(!isFollowing);
-      
-      fetchProfile();
-    } catch (err) {
-      console.error("Follow error:", err.response?.data || err.message);
-      setError("Failed to update follow status.");
-    }
-  };
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <div className="text-lg font-semibold text-gray-700">Failed to authenticate.</div>
+      </div>
+    );
+  }
 
-  // --- UI states ---
-  if (loading) return (
-    <div className="min-h-screen bg-gray-100">
-      <Navbar />
-      <p className="text-center mt-10">Loading...</p>
-    </div>
-  );
-  
-  if (error) return (
-    <div className="min-h-screen bg-gray-100">
-      <Navbar />
-      <p className="text-center mt-10 text-red-500">{error}</p>
-    </div>
-  );
-  
-  if (!profile) return (
-    <div className="min-h-screen bg-gray-100">
-      <Navbar />
-      <p className="text-center mt-10">No profile found.</p>
-    </div>
-  );
+  const userId = user.uid;
+
+  const profileData = {
+    username: 'Jane Doe',
+    handle: '@janedoe',
+    bio: 'Software engineer passionate about front-end development, UI/UX design, and sharing cool projects.',
+    profileImage: 'https://placehold.co/150x150/000000/FFFFFF?text=J',
+    coverImage: 'https://placehold.co/1000x300/F0F4F8/607E96?text=Cover+Image',
+    followers: 1200,
+    following: 350,
+  };
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900">
+    <div className="min-h-screen bg-gray-100 font-sans">
       <Navbar />
-      <div className="max-w-3xl mx-auto py-6 px-4">
-        {/* Profile Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <img
-              src={
-                profile.avatar
-                  ? `${api.defaults.baseURL}/uploads/avatars/${profile.avatar}`
-                  : "https://placehold.co/100x100/A0AEC0/000000?text=Avatar"
-              }
-              alt="avatar"
-              className="w-24 h-24 rounded-full object-cover"
-            />
-            <div>
-              <h1 className="text-2xl font-bold">{profile.username}</h1>
-              <p className="text-gray-600">{profile.email}</p>
-              <p className="mt-2">{profile.bio || "No bio yet."}</p>
-              {profile._id === user._id && (
-                <button
-                  onClick={() => setEditing(true)}
-                  className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Edit Profile
-                </button>
-              )}
+      <div className="container mx-auto p-4 mt-16 sm:p-6 lg:p-8">
+        <div className="bg-white rounded-lg shadow-xl overflow-hidden mb-8">
+          <div className="relative">
+            <img src={profileData.coverImage} alt="Cover" className="w-full h-48 object-cover rounded-t-lg" />
+            <div className="absolute left-6 -bottom-16">
+              <img src={profileData.profileImage} alt="Profile" className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg" />
             </div>
           </div>
-          {profile._id !== user._id && (
-            <button
-              onClick={handleFollow}
-              className={`px-4 py-2 rounded ${
-                isFollowing ? "bg-red-500 hover:bg-red-600" : "bg-blue-500 hover:bg-blue-600"
-              } text-white transition-colors`}
-            >
-              {isFollowing ? "Unfollow" : "Follow"}
-            </button>
+          <div className="pt-20 p-6 sm:p-8">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">{profileData.username}</h1>
+                <p className="text-gray-500 text-lg">{profileData.handle}</p>
+                <div className="flex mt-4 space-x-6 text-gray-700">
+                  <div className="flex items-center">
+                    <span className="font-bold text-lg">{profileData.followers}</span>
+                    <span className="ml-1 text-sm">Followers</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="font-bold text-lg">{profileData.following}</span>
+                    <span className="ml-1 text-sm">Following</span>
+                  </div>
+                </div>
+              </div>
+              <button className="bg-blue-600 text-white px-6 py-2 rounded-full font-semibold hover:bg-blue-700 transition duration-300 transform hover:scale-105">
+                Follow
+              </button>
+            </div>
+            <p className="text-gray-700 mt-4 leading-relaxed">{profileData.bio}</p>
+          </div>
+        </div>
+        <div className="text-2xl font-bold text-gray-800 mb-6">Recent Posts</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {posts.length > 0 ? (
+            posts.map((post) => (
+              <ProfilePost key={post.id} post={post} />
+            ))
+          ) : (
+            <div className="md:col-span-2 lg:col-span-3 text-center text-gray-500 py-10">
+              No posts found.
+            </div>
           )}
         </div>
-
-        <p className="mb-2">Followers: {profile.followers?.length || 0}</p>
-        <p className="mb-6">Following: {profile.following?.length || 0}</p>
-
-        {/* Posts Swiper */}
-        <h3 className="text-xl font-semibold mb-4">Posts</h3>
-        {posts.length === 0 ? (
-          <p className="text-center text-gray-600">
-            No posts found for this user.
-          </p>
-        ) : (
-          <div className="relative">
-            <Swiper
-              navigation={true}
-              modules={[Navigation]}
-              slidesPerView={1}
-              spaceBetween={10}
-              className="mySwiper"
-              breakpoints={{
-                640: {
-                  slidesPerView: 2,
-                  spaceBetween: 20,
-                },
-                768: {
-                  slidesPerView: 3,
-                  spaceBetween: 30,
-                },
-              }}
-            >
-              {posts.map((post) => (
-                <SwiperSlide key={post._id}>
-                  <div onClick={() => setSelectedPost(post)} className="cursor-pointer">
-                    <ProfilePost post={post} />
-                  </div>
-                </SwiperSlide>
-              ))}
-            </Swiper>
-          </div>
-        )}
-
-        {/* Edit Profile Modal */}
-        {editing && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]">
-            <form
-              onSubmit={handleUpdate}
-              className="bg-white p-6 rounded-lg shadow-lg w-96"
-            >
-              <h2 className="text-xl font-bold mb-4 text-black">
-                Edit Profile
-              </h2>
-              <label className="block mb-2 text-black">Bio</label>
-              <textarea
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                className="w-full p-2 rounded border border-gray-300"
-                rows="4"
-              />
-              <label className="block mt-4 mb-2 text-black">
-                Avatar
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setAvatar(e.target.files[0])}
-                className="mb-4 w-full"
-              />
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Save
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Post Modal for enlarged image view */}
-        <PostModal
-          post={selectedPost}
-          onClose={() => setSelectedPost(null)}
-        />
       </div>
     </div>
+  );
+};
+
+// Main App component
+export default function App() {
+  return (
+    <AuthProvider>
+      <ProfilePage />
+    </AuthProvider>
   );
 }
