@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import Navbar from "../components/Navbar";
+
 
 // Your ImgBB API Key
 const IMGBB_API_KEY = "28a32508b8289106a69481044e67a173";
