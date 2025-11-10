@@ -532,9 +532,9 @@ const MrTailorDashboard: React.FC = () => {
       return acc;
     }, {} as Record<string, number>);
 
-    const topTags = Object.entries(tagCounts)
-      .sort((a, b) => b[1] - a[1])  // FIXED: Changed from [,a], [,b] to a, b
-      .slice(0, 3)
+    const topTags = (Object.entries(tagCounts) as [string, number][])
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
       .map(([tag]) => tag);
 
     if (topTags.length > 0) {
