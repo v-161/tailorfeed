@@ -534,11 +534,9 @@ const MrTailorDashboard: React.FC = () => {
       }, {} as Record<string, number>);
 
       const topTags = Object.entries(tagCounts)
-        .sort((entryA, entryB) => {
-          const countA = entryA[1];
-          const countB = entryB[1];
-          return countB - countA;
-        })
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([tag]) => tag);
         .slice(0, 3)
         .map(([tag]) => tag);
 
