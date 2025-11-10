@@ -3,7 +3,8 @@ import {
   Box, Typography, Paper, Card, CardContent, Chip,
   Button, LinearProgress, List, ListItem, ListItemText,
   ListItemIcon, Switch, FormControlLabel, Divider,
-  Accordion, AccordionSummary, AccordionDetails, CircularProgress, Alert
+  Accordion, AccordionSummary, AccordionDetails, CircularProgress, Alert,
+  Grid
 } from '@mui/material';
 import {
   SmartToy, Analytics, Psychology, TrendingUp,
@@ -16,6 +17,8 @@ import { RecommendationEngine } from '../components/ai/RecommendationEngine';
 import MrTailorSurvey from '../components/ai/MrTailorSurvey';
 import { aiService, UserInterest } from '../services/aiService';
 import { aiAnalyticsService, AITip } from '../services/AIAnalyticsService';
+// Add import at top
+import AIChatBot from '../components/ai/AIChatBot';
 
 interface RecommendedPost {
   _id: string;
@@ -60,6 +63,9 @@ const MrTailorDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  
+  // Add state for chatbot tips
+  const [chatbotTips, setChatbotTips] = useState<AITip[]>([]);
 
   // Safe user stats access
   const safeUserStats = {
@@ -69,6 +75,11 @@ const MrTailorDashboard: React.FC = () => {
     engagementRate: userStats?.engagementRate || 0,
     topTags: userStats?.topTags || [],
     joinDate: userStats?.joinDate || new Date().toISOString()
+  };
+
+  // Add this function to handle new tips from chatbot
+  const handleNewChatbotTip = (tip: any) => {
+    setChatbotTips(prev => [tip, ...prev].slice(0, 3));
   };
 
   // Create a global refresh function
@@ -394,6 +405,9 @@ const MrTailorDashboard: React.FC = () => {
   const engagementPattern = RecommendationEngine.getUserEngagementPattern(posts, currentUser?._id || user?._id || '');
   const recommendedTags = RecommendationEngine.getTopRecommendedTags(userPreferences, posts);
 
+  // Combine regular tips with chatbot tips
+  const allTips = [...aiTips, ...chatbotTips].slice(0, 6);
+
   return (
     <Box sx={{ p: 2, pb: 8 }}>
       {/* Header */}
@@ -563,59 +577,73 @@ const MrTailorDashboard: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Enhanced AI Tips Section */}
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <TipsAndUpdates />
-                AI Optimization Tips
-              </Typography>
-              <List>
-                {aiTips.map((tip) => (
-                  <ListItem 
-                    key={tip.id}
-                    sx={{
-                      borderLeft: `4px solid ${
-                        tip.priority === 'high' ? '#f44336' : 
-                        tip.priority === 'medium' ? '#ff9800' : '#4caf50'
-                      }`,
-                      mb: 1,
-                      backgroundColor: 'background.default',
-                      borderRadius: 1
-                    }}
-                  >
-                    <ListItemIcon>
-                      <TipsAndUpdates 
-                        color={
-                          tip.priority === 'high' ? 'error' : 
-                          tip.priority === 'medium' ? 'warning' : 'success'
-                        } 
-                      />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={
-                        <Typography variant="subtitle1" fontWeight="medium">
-                          {tip.title}
-                        </Typography>
-                      }
-                      secondary={tip.message}
-                    />
-                  </ListItem>
-                ))}
-                {aiTips.length === 0 && (
-                  <ListItem>
-                    <ListItemIcon>
-                      <TipsAndUpdates color="disabled" />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="No tips available yet"
-                      secondary="Start posting and engaging to get personalized optimization tips."
-                    />
-                  </ListItem>
-                )}
-              </List>
-            </CardContent>
-          </Card>
+          {/* Enhanced AI Tips Section with Chatbot */}
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <TipsAndUpdates />
+                    AI Optimization Tips
+                  </Typography>
+                  <List>
+                    {allTips.map((tip) => (
+                      <ListItem 
+                        key={tip.id}
+                        sx={{
+                          borderLeft: `4px solid ${
+                            tip.priority === 'high' ? '#f44336' : 
+                            tip.priority === 'medium' ? '#ff9800' : '#4caf50'
+                          }`,
+                          mb: 1,
+                          backgroundColor: 'background.default',
+                          borderRadius: 1
+                        }}
+                      >
+                        <ListItemIcon>
+                          <TipsAndUpdates 
+                            color={
+                              tip.priority === 'high' ? 'error' : 
+                              tip.priority === 'medium' ? 'warning' : 'success'
+                            } 
+                          />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={
+                            <Typography variant="subtitle1" fontWeight="medium">
+                              {tip.title}
+                            </Typography>
+                          }
+                          secondary={tip.message}
+                        />
+                      </ListItem>
+                    ))}
+                    {allTips.length === 0 && (
+                      <ListItem>
+                        <ListItemIcon>
+                          <TipsAndUpdates color="disabled" />
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary="No tips available yet"
+                          secondary="Start posting and engaging to get personalized optimization tips."
+                        />
+                      </ListItem>
+                    )}
+                  </List>
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <AIChatBot 
+                userPosts={contextPosts.filter(post => post.userId === currentUser?._id)}
+                userInterests={userInterests}
+                userStats={safeUserStats}
+                allPosts={contextPosts}
+                onNewTip={handleNewChatbotTip}
+              />
+            </Grid>
+          </Grid>
         </Box>
 
         {/* Right Column - Controls & Recommendations */}
