@@ -44,6 +44,7 @@
 - **Pattern Recognition** - Behavior analysis
 
 ## 📦 Project Structure
+```
 tailorfeed/
 ├── client/ # React frontend
 │ ├── src/
@@ -64,3 +65,4 @@ tailorfeed/
 │ ├── uploads/ # File uploads (development)
 │ └── package.json
 └── README.md
+```
