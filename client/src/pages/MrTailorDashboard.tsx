@@ -438,7 +438,7 @@ const MrTailorDashboard: React.FC = () => {
         interactionCount: count,
         category: 'engagement'
       }))
-      .sort((a, b) => b.score - a.score); // FIXED: Using property access instead of array destructuring
+      .sort((a, b) => b.score - a.score);
 
     if (generatedInterests.length > 0) {
       console.log('🎯 Generated interests from engagement:', generatedInterests);
@@ -535,8 +535,6 @@ const MrTailorDashboard: React.FC = () => {
 
       const topTags = Object.entries(tagCounts)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([tag]) => tag);
         .slice(0, 3)
         .map(([tag]) => tag);
 
@@ -571,11 +569,7 @@ const MrTailorDashboard: React.FC = () => {
       }, {} as Record<string, number>);
 
       const mostUsedTags = Object.entries(userTagCounts)
-        .sort((entryA, entryB) => {
-          const countA = entryA[1];
-          const countB = entryB[1];
-          return countB - countA;
-        })
+        .sort((a, b) => b[1] - a[1])
         .slice(0, 2)
         .map(([tag]) => tag);
 
