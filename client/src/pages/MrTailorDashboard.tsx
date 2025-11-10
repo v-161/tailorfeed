@@ -20,7 +20,7 @@ import {
   Psychology,
   EmojiObjects,
 } from '@mui/icons-material';
-import AIChatBot from 'src/components/ai/AIChatBot';
+import AIChatBot from '../components/ai/AIChatBot';
 
 interface MrTailorDashboardProps {
   user: any;
