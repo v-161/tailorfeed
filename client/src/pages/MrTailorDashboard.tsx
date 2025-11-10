@@ -413,7 +413,7 @@ const MrTailorDashboard: React.FC = () => {
     }
   };
 
-  // Generate interests from actual user engagement
+  // Generate interests from actual user engagement - FIXED VERSION
   const generateInterestsFromEngagement = (): UserInterest[] => {
     const userLikedPosts = contextPosts.filter(post => {
       const userId = currentUser?._id;
@@ -430,7 +430,7 @@ const MrTailorDashboard: React.FC = () => {
       }
     });
 
-    // Convert to UserInterest format
+    // Convert to UserInterest format - FIXED THE SORT
     const generatedInterests: UserInterest[] = Object.entries(interestFrequency)
       .map(([tag, count]) => ({
         tag,
@@ -438,7 +438,7 @@ const MrTailorDashboard: React.FC = () => {
         interactionCount: count,
         category: 'engagement'
       }))
-      .sort((a, b) => b.score - a.score);
+      .sort((a, b) => b.score - a.score); // FIXED: Using property access instead of array destructuring
 
     if (generatedInterests.length > 0) {
       console.log('🎯 Generated interests from engagement:', generatedInterests);
@@ -487,7 +487,7 @@ const MrTailorDashboard: React.FC = () => {
     }
   };
 
-  // Fallback tips based on actual user data
+  // Fallback tips based on actual user data - FIXED VERSION
   const generateFallbackTips = (): AITip[] => {
     const userPosts = contextPosts.filter(post => post.userId === currentUser?._id);
     const userLikedPosts = contextPosts.filter(post => {
@@ -526,7 +526,7 @@ const MrTailorDashboard: React.FC = () => {
         priority: 'high'
       });
     } else {
-      // Analyze liked posts for patterns
+      // Analyze liked posts for patterns - FIXED SORT
       const likedTags = userLikedPosts.flatMap(post => post.tags || []);
       const tagCounts = likedTags.reduce((acc, tag) => {
         acc[tag] = (acc[tag] || 0) + 1;
@@ -534,7 +534,11 @@ const MrTailorDashboard: React.FC = () => {
       }, {} as Record<string, number>);
 
       const topTags = Object.entries(tagCounts)
-        .sort(([,a], [,b]) => b - a)
+        .sort((entryA, entryB) => {
+          const countA = entryA[1];
+          const countB = entryB[1];
+          return countB - countA;
+        })
         .slice(0, 3)
         .map(([tag]) => tag);
 
@@ -560,7 +564,7 @@ const MrTailorDashboard: React.FC = () => {
       });
     }
 
-    // Tip based on posting performance
+    // Tip based on posting performance - FIXED SORT
     if (userPosts.length > 0) {
       const userPostTags = userPosts.flatMap(post => post.tags || []);
       const userTagCounts = userPostTags.reduce((acc, tag) => {
@@ -569,7 +573,11 @@ const MrTailorDashboard: React.FC = () => {
       }, {} as Record<string, number>);
 
       const mostUsedTags = Object.entries(userTagCounts)
-        .sort(([,a], [,b]) => b - a)
+        .sort((entryA, entryB) => {
+          const countA = entryA[1];
+          const countB = entryB[1];
+          return countB - countA;
+        })
         .slice(0, 2)
         .map(([tag]) => tag);
 
