@@ -4,12 +4,13 @@ import {
   Button, LinearProgress, List, ListItem, ListItemText,
   ListItemIcon, Switch, FormControlLabel, Divider,
   Accordion, AccordionSummary, AccordionDetails, CircularProgress, Alert,
-  Grid
+  Grid, TextField, Avatar, IconButton
 } from '@mui/material';
 import {
   SmartToy, Analytics, Psychology, TrendingUp,
   Favorite, Tag, Schedule, ExpandMore,
-  TipsAndUpdates, Settings, Visibility, Refresh, Warning
+  TipsAndUpdates, Settings, Visibility, Refresh, Warning,
+  Send, Person, SmartToy as BotIcon
 } from '@mui/icons-material';
 import { useDataContext } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,8 +18,6 @@ import { RecommendationEngine } from '../components/ai/RecommendationEngine';
 import MrTailorSurvey from '../components/ai/MrTailorSurvey';
 import { aiService, UserInterest } from '../services/aiService';
 import { aiAnalyticsService, AITip } from '../services/AIAnalyticsService';
-// Add import at top
-import AIChatBot from '../components/ai/AIChatBot';
 
 interface RecommendedPost {
   _id: string;
@@ -45,6 +44,267 @@ interface Post {
   createdAt: Date;
   imageUrl: string;
 }
+
+interface ChatMessage {
+  id: string;
+  text: string;
+  isUser: boolean;
+  timestamp: Date;
+}
+
+// Simple AI Chatbot Component
+const AIChatBot: React.FC<{
+  userPosts: any[];
+  userInterests: UserInterest[];
+  userStats: any;
+  allPosts: any[];
+  onNewTip: (tip: AITip) => void;
+}> = ({ userPosts, userInterests, userStats, allPosts, onNewTip }) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: '1',
+      text: "Hi! I'm Mr. Tailor AI. I can help you optimize your content strategy and provide personalized tips. Ask me about your posting patterns, engagement, or how to improve!",
+      isUser: false,
+      timestamp: new Date()
+    }
+  ]);
+  const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const generateResponse = async (userMessage: string): Promise<string> => {
+    // Simple rule-based responses - no external API needed
+    const userMessageLower = userMessage.toLowerCase();
+    
+    // Analyze user data for personalized responses
+    const postCount = userPosts.length;
+    const topInterests = userInterests.slice(0, 3).map(i => i.tag);
+    const totalLikes = userStats.totalLikes;
+    const engagementRate = userStats.engagementRate;
+
+    if (userMessageLower.includes('hello') || userMessageLower.includes('hi') || userMessageLower.includes('hey')) {
+      return "Hello! I'm Mr. Tailor, your personal content assistant. How can I help you with your social media strategy today?";
+    }
+
+    if (userMessageLower.includes('post') || userMessageLower.includes('content')) {
+      if (postCount === 0) {
+        return "I see you haven't posted yet! Starting with 2-3 posts about your interests would help establish your presence. Try sharing content related to your hobbies or expertise!";
+      } else if (postCount < 5) {
+        return `You've made ${postCount} posts so far. That's a good start! Consider posting more consistently - maybe 2-3 times per week to build momentum.`;
+      } else {
+        return `Great job with ${postCount} posts! You're building a solid content history. Keep focusing on quality content that aligns with your interests.`;
+      }
+    }
+
+    if (userMessageLower.includes('interest') || userMessageLower.includes('like') || userMessageLower.includes('preference')) {
+      if (topInterests.length > 0) {
+        return `Based on your activity, your top interests are: ${topInterests.map(tag => `#${tag}`).join(', ')}. You should create more content around these topics as they resonate well with you!`;
+      } else {
+        return "I'm still learning about your interests. Try liking more posts or updating your preferences in the survey to help me understand what content you enjoy!";
+      }
+    }
+
+    if (userMessageLower.includes('engagement') || userMessageLower.includes('like') || userMessageLower.includes('interact')) {
+      if (totalLikes > 10) {
+        return `You've given ${totalLikes} likes - that's excellent engagement! Your active participation helps me understand your preferences better. Keep interacting with content you enjoy!`;
+      } else if (totalLikes > 0) {
+        return `You've given ${totalLikes} likes so far. Try engaging with more posts to help me learn your preferences faster!`;
+      } else {
+        return "Start by liking posts that interest you! This helps me understand your preferences and recommend better content for you.";
+      }
+    }
+
+    if (userMessageLower.includes('tip') || userMessageLower.includes('advice') || userMessageLower.includes('help')) {
+      // Generate a personalized tip based on user data
+      let tipText = "";
+      
+      if (postCount === 0) {
+        tipText = "Start by creating your first post! Share something you're passionate about.";
+      } else if (topInterests.length > 0) {
+        tipText = `Create more content about ${topInterests[0]} - it's one of your strongest interests!`;
+      } else if (totalLikes < 5) {
+        tipText = "Try engaging with 5-10 posts today to help me understand your preferences better.";
+      } else {
+        tipText = "Consider posting at different times of day to see when your audience is most active.";
+      }
+
+      // Also create a tip for the dashboard
+      const newTip: AITip = {
+        id: `chatbot-${Date.now()}`,
+        title: '💡 Chatbot Suggestion',
+        message: tipText,
+        type: 'optimization',
+        priority: 'medium'
+      };
+      onNewTip(newTip);
+
+      return `Here's a personalized tip: ${tipText}`;
+    }
+
+    if (userMessageLower.includes('tag') || userMessageLower.includes('hashtag')) {
+      if (topInterests.length > 0) {
+        return `For better reach, use tags like: ${topInterests.map(tag => `#${tag}`).join(', ')} in your posts. These align with your interests and can help connect with like-minded users!`;
+      } else {
+        return "Popular tags can help your posts get discovered. Try using relevant tags that describe your content and interests.";
+      }
+    }
+
+    if (userMessageLower.includes('time') || userMessageLower.includes('when') || userMessageLower.includes('schedule')) {
+      return "Based on general patterns, posting in the evening (6-9 PM) often gets good engagement. But the best time is when your specific audience is most active!";
+    }
+
+    if (userMessageLower.includes('thank') || userMessageLower.includes('thanks')) {
+      return "You're welcome! I'm here to help you succeed. Feel free to ask me anything about content strategy or optimization!";
+    }
+
+    // Default response for unrecognized queries
+    return "I'm here to help with your content strategy! You can ask me about: posting tips, engagement strategies, interest analysis, tag recommendations, or best practices for growing your presence.";
+  };
+
+  const handleSendMessage = async () => {
+    if (!inputText.trim()) return;
+
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      text: inputText,
+      isUser: true,
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInputText('');
+    setIsLoading(true);
+
+    try {
+      const response = await generateResponse(inputText);
+      const botMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        text: response,
+        isUser: false,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Error generating response:', error);
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        text: "I apologize, but I'm having trouble processing your request right now. Please try again!",
+        isUser: false,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  return (
+    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 0 }}>
+        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <BotIcon />
+            Mr. Tailor Chat
+          </Typography>
+          <Typography variant="body2" sx={{ opacity: 0.8 }}>
+            Your AI Content Assistant
+          </Typography>
+        </Box>
+
+        <Box sx={{ flex: 1, overflow: 'auto', p: 2, maxHeight: 400 }}>
+          {messages.map((message) => (
+            <Box
+              key={message.id}
+              sx={{
+                display: 'flex',
+                justifyContent: message.isUser ? 'flex-end' : 'flex-start',
+                mb: 2
+              }}
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 1,
+                  maxWidth: '70%',
+                  flexDirection: message.isUser ? 'row-reverse' : 'row'
+                }}
+              >
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    bgcolor: message.isUser ? 'primary.main' : 'secondary.main'
+                  }}
+                >
+                  {message.isUser ? <Person /> : <BotIcon />}
+                </Avatar>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 1.5,
+                    bgcolor: message.isUser ? 'primary.light' : 'background.default',
+                    color: message.isUser ? 'primary.contrastText' : 'text.primary'
+                  }}
+                >
+                  <Typography variant="body2">{message.text}</Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', mt: 0.5 }}>
+                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Typography>
+                </Paper>
+              </Box>
+            </Box>
+          ))}
+          {isLoading && (
+            <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+                  <BotIcon />
+                </Avatar>
+                <Paper variant="outlined" sx={{ p: 1.5 }}>
+                  <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CircularProgress size={16} />
+                    Thinking...
+                  </Typography>
+                </Paper>
+              </Box>
+            </Box>
+          )}
+        </Box>
+
+        <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Ask me about content strategy..."
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={isLoading}
+            />
+            <IconButton 
+              onClick={handleSendMessage} 
+              disabled={!inputText.trim() || isLoading}
+              color="primary"
+            >
+              <Send />
+            </IconButton>
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            Try: "How can I improve my posts?" or "What are my top interests?"
+          </Typography>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+};
 
 const MrTailorDashboard: React.FC = () => {
   const { currentUser } = useAuth();
@@ -78,7 +338,7 @@ const MrTailorDashboard: React.FC = () => {
   };
 
   // Add this function to handle new tips from chatbot
-  const handleNewChatbotTip = (tip: any) => {
+  const handleNewChatbotTip = (tip: AITip) => {
     setChatbotTips(prev => [tip, ...prev].slice(0, 3));
   };
 
