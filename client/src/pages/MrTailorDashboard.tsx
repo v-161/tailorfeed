@@ -487,116 +487,115 @@ const MrTailorDashboard: React.FC = () => {
     }
   };
 
-  // Fallback tips based on actual user data - FIXED VERSION
   const generateFallbackTips = (): AITip[] => {
-    const userPosts = contextPosts.filter(post => post.userId === currentUser?._id);
-    const userLikedPosts = contextPosts.filter(post => {
-      const userId = currentUser?._id;
-      return userId && Array.isArray(post.likes) && post.likes.includes(userId);
+  const userPosts = contextPosts.filter(post => post.userId === currentUser?._id);
+  const userLikedPosts = contextPosts.filter(post => {
+    const userId = currentUser?._id;
+    return userId && Array.isArray(post.likes) && post.likes.includes(userId);
+  });
+
+  const tips: AITip[] = [];
+
+  // Tip based on posting activity
+  if (userPosts.length === 0) {
+    tips.push({
+      id: 'first-post',
+      title: '🎨 Create Your First Post!',
+      message: 'Start by sharing your first post to help Mr. Tailor understand your content style.',
+      type: 'content',
+      priority: 'high'
     });
+  } else if (userPosts.length < 3) {
+    tips.push({
+      id: 'more-posts',
+      title: '📝 Share More Content',
+      message: `You've created ${userPosts.length} post${userPosts.length === 1 ? '' : 's'}. Try posting 2-3 more times to establish your content pattern.`,
+      type: 'content',
+      priority: 'medium'
+    });
+  }
 
-    const tips: AITip[] = [];
+  // Tip based on engagement
+  if (userLikedPosts.length === 0) {
+    tips.push({
+      id: 'start-engaging',
+      title: '💖 Start Engaging',
+      message: 'Like some posts to help Mr. Tailor learn what content you enjoy!',
+      type: 'engagement',
+      priority: 'high'
+    });
+  } else {
+    // Analyze liked posts for patterns - FIXED SORT
+    const likedTags = userLikedPosts.flatMap(post => post.tags || []);
+    const tagCounts = likedTags.reduce((acc, tag) => {
+      acc[tag] = (acc[tag] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
 
-    // Tip based on posting activity
-    if (userPosts.length === 0) {
+    const topTags = Object.entries(tagCounts)
+      .sort((a, b) => b[1] - a[1])  // FIXED: Changed from [,a], [,b] to a, b
+      .slice(0, 3)
+      .map(([tag]) => tag);
+
+    if (topTags.length > 0) {
       tips.push({
-        id: 'first-post',
-        title: '🎨 Create Your First Post!',
-        message: 'Start by sharing your first post to help Mr. Tailor understand your content style.',
-        type: 'content',
-        priority: 'high'
-      });
-    } else if (userPosts.length < 3) {
-      tips.push({
-        id: 'more-posts',
-        title: '📝 Share More Content',
-        message: `You've created ${userPosts.length} post${userPosts.length === 1 ? '' : 's'}. Try posting 2-3 more times to establish your content pattern.`,
-        type: 'content',
+        id: 'interest-pattern',
+        title: '🎯 Your Interest Pattern',
+        message: `You frequently engage with ${topTags.map(t => `#${t}`).join(', ')}. We're showing you more content in these areas!`,
+        type: 'optimization',
         priority: 'medium'
       });
     }
+  }
 
-    // Tip based on engagement
-    if (userLikedPosts.length === 0) {
+  // Tip based on user preferences
+  if (userPreferences.length > 0) {
+    tips.push({
+      id: 'preference-match',
+      title: '✨ Matching Preferences',
+      message: `Based on your preferences (${userPreferences.slice(0, 3).map(p => `#${p}`).join(', ')}), we're curating relevant content for you.`,
+      type: 'optimization',
+      priority: 'low'
+    });
+  }
+
+  // Tip based on posting performance - FIXED SORT
+  if (userPosts.length > 0) {
+    const userPostTags = userPosts.flatMap(post => post.tags || []);
+    const userTagCounts = userPostTags.reduce((acc, tag) => {
+      acc[tag] = (acc[tag] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const mostUsedTags = Object.entries(userTagCounts)
+      .sort((a, b) => b[1] - a[1])  // FIXED: Changed from [,a], [,b] to a, b
+      .slice(0, 2)
+      .map(([tag]) => tag);
+
+    if (mostUsedTags.length > 0) {
       tips.push({
-        id: 'start-engaging',
-        title: '💖 Start Engaging',
-        message: 'Like some posts to help Mr. Tailor learn what content you enjoy!',
-        type: 'engagement',
-        priority: 'high'
-      });
-    } else {
-      // Analyze liked posts for patterns - FIXED SORT
-      const likedTags = userLikedPosts.flatMap(post => post.tags || []);
-      const tagCounts = likedTags.reduce((acc, tag) => {
-        acc[tag] = (acc[tag] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      const topTags = Object.entries(tagCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([tag]) => tag);
-
-      if (topTags.length > 0) {
-        tips.push({
-          id: 'interest-pattern',
-          title: '🎯 Your Interest Pattern',
-          message: `You frequently engage with ${topTags.map(t => `#${t}`).join(', ')}. We're showing you more content in these areas!`,
-          type: 'optimization',
-          priority: 'medium'
-        });
-      }
-    }
-
-    // Tip based on user preferences
-    if (userPreferences.length > 0) {
-      tips.push({
-        id: 'preference-match',
-        title: '✨ Matching Preferences',
-        message: `Based on your preferences (${userPreferences.slice(0, 3).map(p => `#${p}`).join(', ')}), we're curating relevant content for you.`,
-        type: 'optimization',
+        id: 'content-style',
+        title: '🎨 Your Content Style',
+        message: `You often post about ${mostUsedTags.map(t => `#${t}`).join(' and ')}. Your audience engages well with these topics!`,
+        type: 'content',
         priority: 'low'
       });
     }
+  }
 
-    // Tip based on posting performance - FIXED SORT
-    if (userPosts.length > 0) {
-      const userPostTags = userPosts.flatMap(post => post.tags || []);
-      const userTagCounts = userPostTags.reduce((acc, tag) => {
-        acc[tag] = (acc[tag] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
+  // Default tip if no others
+  if (tips.length === 0) {
+    tips.push({
+      id: 'welcome',
+      title: '👋 Welcome to Mr. Tailor!',
+      message: 'Keep using the platform to receive more personalized tips based on your activity.',
+      type: 'engagement',
+      priority: 'low'
+    });
+  }
 
-      const mostUsedTags = Object.entries(userTagCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 2)
-        .map(([tag]) => tag);
-
-      if (mostUsedTags.length > 0) {
-        tips.push({
-          id: 'content-style',
-          title: '🎨 Your Content Style',
-          message: `You often post about ${mostUsedTags.map(t => `#${t}`).join(' and ')}. Your audience engages well with these topics!`,
-          type: 'content',
-          priority: 'low'
-        });
-      }
-    }
-
-    // Default tip if no others
-    if (tips.length === 0) {
-      tips.push({
-        id: 'welcome',
-        title: '👋 Welcome to Mr. Tailor!',
-        message: 'Keep using the platform to receive more personalized tips based on your activity.',
-        type: 'engagement',
-        priority: 'low'
-      });
-    }
-
-    return tips.slice(0, 4);
-  };
+  return tips.slice(0, 4);
+};
 
   // Calculate AI confidence based on AI interests
   const calculateAIConfidence = () => {
