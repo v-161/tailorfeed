@@ -668,6 +668,9 @@ const MrTailorDashboard: React.FC = () => {
   // Combine regular tips with chatbot tips
   const allTips = [...aiTips, ...chatbotTips].slice(0, 6);
 
+  // Get user's own posts for the chatbot
+  const userPosts = contextPosts.filter(post => post.userId === currentUser?._id);
+
   return (
     <Box sx={{ p: 2, pb: 8 }}>
       {/* Header */}
@@ -714,132 +717,125 @@ const MrTailorDashboard: React.FC = () => {
         </Alert>
       )}
 
-      {/* Main Content */}
-      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
-        {/* Left Column - Insights */}
-        <Box sx={{ flex: 2 }}>
-          {/* AI Confidence Score */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Analytics />
-                  AI Understanding Level
-                </Typography>
-                <Button 
-                  startIcon={<Refresh />} 
-                  onClick={refreshAIData}
-                  disabled={refreshing}
-                  size="small"
-                >
-                  {refreshing ? <CircularProgress size={20} /> : 'Refresh'}
-                </Button>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={aiConfidence} 
-                  sx={{ flexGrow: 1, height: 10, borderRadius: 5 }}
-                />
-                <Typography variant="h6" fontWeight="bold">
-                  {Math.round(aiConfidence)}%
-                </Typography>
-              </Box>
-              <Typography variant="body2" color="text.secondary">
-                {aiConfidence < 30 && "I'm just getting to know you. Like more posts to improve recommendations!"}
-                {aiConfidence >= 30 && aiConfidence < 70 && "I'm learning your style! Keep engaging for better personalization."}
-                {aiConfidence >= 70 && "Excellent! I have a strong understanding of your preferences."}
-              </Typography>
-            </CardContent>
-          </Card>
-
-          {/* Your Interests - UPDATED TO SHOW AI INTERESTS */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Psychology />
-                Your Interests {userInterests.length > 0 && "🤖"}
-              </Typography>
-              
-              {displayInterests.length > 0 ? (
-                <Box>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                    {displayInterests.slice(0, 12).map((interest, index) => (
-                      <Chip
-                        key={index}
-                        label={`#${interest.tag}`}
-                        color={userInterests.length > 0 ? "primary" : "default"}
-                        variant={userInterests.length > 0 ? "filled" : "outlined"}
-                        onDelete={() => {}} // In real app, this would remove preference
-                        deleteIcon={<Visibility />}
-                        title={`Score: ${interest.score} | Interactions: ${interest.interactionCount}`}
-                      />
-                    ))}
+      {/* Main Content - UPDATED LAYOUT */}
+      <Grid container spacing={3}>
+        {/* Left Column - AI Insights */}
+        <Grid item xs={12} lg={8}>
+          <Grid container spacing={3}>
+            {/* AI Confidence Score */}
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                    <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Analytics />
+                      AI Understanding Level
+                    </Typography>
+                    <Button 
+                      startIcon={<Refresh />} 
+                      onClick={refreshAIData}
+                      disabled={refreshing}
+                      size="small"
+                    >
+                      {refreshing ? <CircularProgress size={20} /> : 'Refresh'}
+                    </Button>
                   </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <LinearProgress 
+                      variant="determinate" 
+                      value={aiConfidence} 
+                      sx={{ flexGrow: 1, height: 10, borderRadius: 5 }}
+                    />
+                    <Typography variant="h6" fontWeight="bold">
+                      {Math.round(aiConfidence)}%
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {aiConfidence < 30 && "I'm just getting to know you. Like more posts to improve recommendations!"}
+                    {aiConfidence >= 30 && aiConfidence < 70 && "I'm learning your style! Keep engaging for better personalization."}
+                    {aiConfidence >= 70 && "Excellent! I have a strong understanding of your preferences."}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Your Interests & Engagement Insights Side by Side */}
+            <Grid item xs={12} md={6}>
+              <Card sx={{ height: '100%' }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Psychology />
+                    Your Interests {userInterests.length > 0 && "🤖"}
+                  </Typography>
                   
-                  {/* Show interest stats if we have AI data */}
-                  {userInterests.length > 0 && (
-                    <Typography variant="caption" color="text.secondary">
-                      Tracking {userInterests.length} interests with {userInterests.reduce((sum, i) => sum + i.interactionCount, 0)} total interactions
+                  {displayInterests.length > 0 ? (
+                    <Box>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                        {displayInterests.slice(0, 12).map((interest, index) => (
+                          <Chip
+                            key={index}
+                            label={`#${interest.tag}`}
+                            color={userInterests.length > 0 ? "primary" : "default"}
+                            variant={userInterests.length > 0 ? "filled" : "outlined"}
+                            onDelete={() => {}} // In real app, this would remove preference
+                            deleteIcon={<Visibility />}
+                            title={`Score: ${interest.score} | Interactions: ${interest.interactionCount}`}
+                          />
+                        ))}
+                      </Box>
+                      
+                      {/* Show interest stats if we have AI data */}
+                      {userInterests.length > 0 && (
+                        <Typography variant="caption" color="text.secondary">
+                          Tracking {userInterests.length} interests with {userInterests.reduce((sum, i) => sum + i.interactionCount, 0)} total interactions
+                        </Typography>
+                      )}
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      No interests tracked yet. Start by liking posts or taking our survey!
                     </Typography>
                   )}
-                </Box>
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  No interests tracked yet. Start by liking posts or taking our survey!
-                </Typography>
-              )}
-              
-              <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                <Button 
-                  variant="outlined" 
-                  startIcon={<SmartToy />}
-                  onClick={() => setSurveyOpen(true)}
-                >
-                  Update Preferences
-                </Button>
-                <Button 
-                  variant="text" 
-                  onClick={() => {
-                    console.log('🐛 DEBUG:', {
-                      userInterests,
-                      userPreferences,
-                      likedPosts: contextPosts.filter(p => p.likes.includes(currentUser?._id || '')).length,
-                      aiTips
-                    });
-                  }}
-                >
-                  Debug
-                </Button>
-              </Box>
-            </CardContent>
-          </Card>
+                  
+                  <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                    <Button 
+                      variant="outlined" 
+                      startIcon={<SmartToy />}
+                      onClick={() => setSurveyOpen(true)}
+                      size="small"
+                    >
+                      Update Preferences
+                    </Button>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
 
-          {/* Engagement Insights */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <TrendingUp />
-                Engagement Insights
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', flex: 1 }}>
-                  <Favorite color="primary" />
-                  <Typography variant="h6" fontWeight="bold">{safeUserStats.totalLikes}</Typography>
-                  <Typography variant="body2">Likes Given</Typography>
-                </Paper>
-                <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', flex: 1 }}>
-                  <Tag color="secondary" />
-                  <Typography variant="h6" fontWeight="bold">{displayInterests.length}</Typography>
-                  <Typography variant="body2">Interests</Typography>
-                </Paper>
-              </Box>
-            </CardContent>
-          </Card>
-
-          {/* Enhanced AI Tips Section with Chatbot */}
-          <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
+              <Card sx={{ height: '100%' }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <TrendingUp />
+                    Engagement Insights
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                    <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
+                      <Favorite color="primary" />
+                      <Typography variant="h6" fontWeight="bold">{safeUserStats.totalLikes}</Typography>
+                      <Typography variant="body2">Likes Given</Typography>
+                    </Paper>
+                    <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
+                      <Tag color="secondary" />
+                      <Typography variant="h6" fontWeight="bold">{displayInterests.length}</Typography>
+                      <Typography variant="body2">Interests</Typography>
+                    </Paper>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* AI Tips Section - Full Width */}
+            <Grid item xs={12}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -893,120 +889,130 @@ const MrTailorDashboard: React.FC = () => {
                 </CardContent>
               </Card>
             </Grid>
-            
-            <Grid item xs={12} md={6}>
+          </Grid>
+        </Grid>
+
+        {/* Right Column - Chatbot & Controls */}
+        <Grid item xs={12} lg={4}>
+          <Grid container spacing={3}>
+            {/* AI Chatbot - Now properly placed */}
+            <Grid item xs={12}>
               <AIChatBot 
-                userPosts={contextPosts.filter(post => post.userId === currentUser?._id)}
+                userPosts={userPosts}
                 userInterests={userInterests}
                 userStats={safeUserStats}
                 allPosts={contextPosts}
                 onNewTip={handleNewChatbotTip}
               />
             </Grid>
+
+            {/* AI Settings */}
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Settings />
+                    AI Settings
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Control how Mr. Tailor interacts with you
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={aiSettings.personalizedFeed}
+                          onChange={() => handleSettingChange('personalizedFeed')}
+                        />
+                      }
+                      label="Personalized Feed"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={aiSettings.smartNotifications}
+                          onChange={() => handleSettingChange('smartNotifications')}
+                        />
+                      }
+                      label="Smart Notifications"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={aiSettings.learningFromEngagement}
+                          onChange={() => handleSettingChange('learningFromEngagement')}
+                        />
+                      }
+                      label="Learn from Engagement"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={aiSettings.weeklyInsights}
+                          onChange={() => handleSettingChange('weeklyInsights')}
+                        />
+                      }
+                      label="Weekly Insights"
+                    />
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Recommended Tags */}
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Tag />
+                    Explore New Tags
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Based on your interests and engagement
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {recommendedTags.slice(0, 8).map((tag, index) => (
+                      <Chip
+                        key={index}
+                        label={`#${tag}`}
+                        variant="outlined"
+                        onClick={() => handleAddPreference(tag)}
+                        clickable
+                        size="small"
+                      />
+                    ))}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Active Hours */}
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Schedule />
+                    Your Active Hours
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Based on your posting patterns
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {engagementPattern.activeHours.slice(0, 6).map(hour => (
+                      <Chip
+                        key={hour}
+                        label={`${hour}:00`}
+                        size="small"
+                        variant="outlined"
+                      />
+                    ))}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
-        </Box>
-
-        {/* Right Column - Controls & Recommendations */}
-        <Box sx={{ flex: 1 }}>
-          {/* AI Settings */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Settings />
-                AI Settings
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                (default all enabled, disabling will be enabled in future patches)
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={aiSettings.personalizedFeed}
-                      onChange={() => handleSettingChange('personalizedFeed')}
-                    />
-                  }
-                  label="Personalized Feed"
-                />
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={aiSettings.smartNotifications}
-                      onChange={() => handleSettingChange('smartNotifications')}
-                    />
-                  }
-                  label="Smart Notifications"
-                />
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={aiSettings.learningFromEngagement}
-                      onChange={() => handleSettingChange('learningFromEngagement')}
-                    />
-                  }
-                  label="Learn from Engagement"
-                />
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={aiSettings.weeklyInsights}
-                      onChange={() => handleSettingChange('weeklyInsights')}
-                    />
-                  }
-                  label="Weekly Insights"
-                />
-              </Box>
-            </CardContent>
-          </Card>
-
-          {/* Recommended Tags */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Tag />
-                Explore New Tags
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                (will be enabled in future patches)
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {recommendedTags.map((tag, index) => (
-                  <Chip
-                    key={index}
-                    label={`#${tag}`}
-                    variant="outlined"
-                    onClick={() => handleAddPreference(tag)}
-                    clickable
-                  />
-                ))}
-              </Box>
-            </CardContent>
-          </Card>
-
-          {/* Active Hours */}
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Schedule />
-                Your Active Hours
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Based on your posting patterns
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {engagementPattern.activeHours.map(hour => (
-                  <Chip
-                    key={hour}
-                    label={`${hour}:00`}
-                    size="small"
-                    variant="outlined"
-                  />
-                ))}
-              </Box>
-            </CardContent>
-          </Card>
-        </Box>
-      </Box>
+        </Grid>
+      </Grid>
 
       {/* FAQ Section */}
       <Accordion sx={{ mt: 3 }}>
@@ -1025,6 +1031,9 @@ const MrTailorDashboard: React.FC = () => {
           </Typography>
           <Typography variant="body2" paragraph>
             • <strong>Smart Recommendations:</strong> Suggests content you're likely to enjoy
+          </Typography>
+          <Typography variant="body2" paragraph>
+            • <strong>AI Chat Assistant:</strong> Get personalized advice and tips through conversation
           </Typography>
           <Typography variant="body2">
             Your data is always private and secure. We never share your personal information.
