@@ -56,7 +56,7 @@ const MrTailorDashboard: React.FC = () => {
 
   const [userInterests, setUserInterests] = useState<UserInterest[]>([]);
   const [recommendedPosts, setRecommendedPosts] = useState<RecommendedPost[]>([]);
-  const [aiTips, setAiTips] = useState<AITip[]>([]);
+  const [aiTips, setAiTips] = useState<AITip[]>([]); // ADDED: Missing state
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -115,13 +115,9 @@ const MrTailorDashboard: React.FC = () => {
       if (interestsResponse.success && interestsResponse.interests && interestsResponse.interests.length > 0) {
         console.log('✅ Setting AI Interests:', interestsResponse.interests);
         setUserInterests(interestsResponse.interests);
-        // Generate tips with actual interests
-        await generateAITips(interestsResponse.interests);
       } else {
         console.log('⚠️ AI Interests empty or failed, using engagement-based interests');
-        const generatedInterests = generateInterestsFromEngagement();
-        // Generate tips with generated interests
-        await generateAITips(generatedInterests);
+        generateInterestsFromEngagement();
       }
 
       // Load recommendations
@@ -130,12 +126,13 @@ const MrTailorDashboard: React.FC = () => {
         setRecommendedPosts(recommendationsResponse.data.posts || []);
       }
 
+      // Generate AI tips
+      await generateAITips(userInterests);
+
     } catch (error: any) {
       console.error('💥 Error loading AI data:', error);
       setApiError('AI service temporarily unavailable. Using engagement data.');
-      const generatedInterests = generateInterestsFromEngagement();
-      // Generate fallback tips
-      await generateAITips(generatedInterests);
+      generateInterestsFromEngagement();
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -143,7 +140,7 @@ const MrTailorDashboard: React.FC = () => {
   };
 
   // Generate interests from actual user engagement
-  const generateInterestsFromEngagement = (): UserInterest[] => {
+  const generateInterestsFromEngagement = () => {
     const userLikedPosts = contextPosts.filter(post => {
       const userId = currentUser?._id;
       return userId && Array.isArray(post.likes) && post.likes.includes(userId);
@@ -172,159 +169,35 @@ const MrTailorDashboard: React.FC = () => {
     if (generatedInterests.length > 0) {
       console.log('🎯 Generated interests from engagement:', generatedInterests);
       setUserInterests(generatedInterests);
-      return generatedInterests;
     } else {
       console.log('📝 No engagement data found');
-      return [];
     }
   };
 
-  // Enhanced AI tips generation with real user data
+  // Enhanced AI tips generation
   const generateAITips = async (interests: UserInterest[]) => {
     try {
-      // Filter user's own posts and liked posts
+      // Filter user's own posts
       const userPosts = contextPosts.filter(post => post.userId === currentUser?._id);
-      const userLikedPosts = contextPosts.filter(post => {
-        const userId = currentUser?._id;
-        return userId && Array.isArray(post.likes) && post.likes.includes(userId);
-      });
-
-      console.log('🔍 Generating personalized tips for:', {
-        userPosts: userPosts.length,
-        userLikedPosts: userLikedPosts.length,
-        interests: interests.length,
-        totalPosts: contextPosts.length
-      });
-
-      // Use the enhanced AI analytics service
+      
       const tips = await aiAnalyticsService.generateAITips(
         userPosts,
         contextPosts,
         interests,
         safeUserStats
       );
-
-      console.log('✅ Generated personalized tips:', tips);
       setAiTips(tips);
-
     } catch (error) {
-      console.error('❌ Error generating AI tips:', error);
-      
-      // Fallback: Generate basic tips from actual user data
-      const fallbackTips = generateFallbackTips();
-      setAiTips(fallbackTips);
-    }
-  };
-
-  // Fallback tips based on actual user data
-  const generateFallbackTips = (): AITip[] => {
-    const userPosts = contextPosts.filter(post => post.userId === currentUser?._id);
-    const userLikedPosts = contextPosts.filter(post => {
-      const userId = currentUser?._id;
-      return userId && Array.isArray(post.likes) && post.likes.includes(userId);
-    });
-
-    const tips: AITip[] = [];
-
-    // Tip based on posting activity
-    if (userPosts.length === 0) {
-      tips.push({
-        id: 'first-post',
-        title: '🎨 Create Your First Post!',
-        message: 'Start by sharing your first post to help Mr. Tailor understand your content style.',
-        type: 'content',
-        priority: 'high'
-      });
-    } else if (userPosts.length < 3) {
-      tips.push({
-        id: 'more-posts',
-        title: '📝 Share More Content',
-        message: `You've created ${userPosts.length} post${userPosts.length === 1 ? '' : 's'}. Try posting 2-3 more times to establish your content pattern.`,
-        type: 'content',
-        priority: 'medium'
-      });
-    }
-
-    // Tip based on engagement
-    if (userLikedPosts.length === 0) {
-      tips.push({
-        id: 'start-engaging',
-        title: '💖 Start Engaging',
-        message: 'Like some posts to help Mr. Tailor learn what content you enjoy!',
-        type: 'engagement',
-        priority: 'high'
-      });
-    } else {
-      // Analyze liked posts for patterns
-      const likedTags = userLikedPosts.flatMap(post => post.tags || []);
-      const tagCounts = likedTags.reduce((acc, tag) => {
-        acc[tag] = (acc[tag] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      const topTags = Object.entries(tagCounts)
-        .sort(([,a], [,b]) => b - a)
-        .slice(0, 3)
-        .map(([tag]) => tag);
-
-      if (topTags.length > 0) {
-        tips.push({
-          id: 'interest-pattern',
-          title: '🎯 Your Interest Pattern',
-          message: `You frequently engage with ${topTags.map(t => `#${t}`).join(', ')}. We're showing you more content in these areas!`,
-          type: 'optimization',
-          priority: 'medium'
-        });
-      }
-    }
-
-    // Tip based on user preferences
-    if (userPreferences.length > 0) {
-      tips.push({
-        id: 'preference-match',
-        title: '✨ Matching Preferences',
-        message: `Based on your preferences (${userPreferences.slice(0, 3).map(p => `#${p}`).join(', ')}), we're curating relevant content for you.`,
-        type: 'optimization',
-        priority: 'low'
-      });
-    }
-
-    // Tip based on posting performance
-    if (userPosts.length > 0) {
-      const userPostTags = userPosts.flatMap(post => post.tags || []);
-      const userTagCounts = userPostTags.reduce((acc, tag) => {
-        acc[tag] = (acc[tag] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      const mostUsedTags = Object.entries(userTagCounts)
-        .sort(([,a], [,b]) => b - a)
-        .slice(0, 2)
-        .map(([tag]) => tag);
-
-      if (mostUsedTags.length > 0) {
-        tips.push({
-          id: 'content-style',
-          title: '🎨 Your Content Style',
-          message: `You often post about ${mostUsedTags.map(t => `#${t}`).join(' and ')}. Your audience engages well with these topics!`,
-          type: 'content',
-          priority: 'low'
-        });
-      }
-    }
-
-    // Default tip if no others
-    if (tips.length === 0) {
-      tips.push({
-        id: 'welcome',
-        title: '👋 Welcome to Mr. Tailor!',
-        message: 'Keep using the platform to receive more personalized tips based on your activity.',
+      console.error('Error generating AI tips:', error);
+      // Fallback tips
+      setAiTips([{
+        id: 'error-tip',
+        title: 'Tips Coming Soon',
+        message: 'We\'re analyzing your content to provide personalized tips.',
         type: 'engagement',
         priority: 'low'
-      });
+      }]);
     }
-
-    return tips.slice(0, 4);
   };
 
   // Calculate AI confidence based on AI interests
