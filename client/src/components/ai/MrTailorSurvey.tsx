@@ -14,12 +14,12 @@ import {
 } from '@mui/material';
 import { SmartToy, Close } from '@mui/icons-material';
 import { useDataContext } from '../../contexts/DataContext';
-
+import { aiService } from '../../services/aiService'; // ADDED IMPORT
 
 interface MrTailorSurveyProps {
   open: boolean;
   onClose: () => void;
-  onSubmit?: (responses: any[]) => void; // ADDED THIS PROP
+  onSubmit?: (responses: any[]) => void;
 }
 
 const MrTailorSurvey: React.FC<MrTailorSurveyProps> = ({ open, onClose, onSubmit }) => {
@@ -49,31 +49,44 @@ const MrTailorSurvey: React.FC<MrTailorSurveyProps> = ({ open, onClose, onSubmit
     }));
   };
 
-  const handleComplete = () => {
-    // Format responses for AI backend
-    const formattedResponses = Object.entries(ratings).map(([tag, rating]) => ({
-      question: `How interested are you in ${tag}?`,
-      answer: rating >= 3 ? `I'm interested in ${tag}` : `Not interested in ${tag}`
-    }));
+  const handleComplete = async () => { // MADE ASYNC
+    try {
+      // Format responses for AI backend
+      const formattedResponses = Object.entries(ratings).map(([tag, rating]) => ({
+        question: `How interested are you in ${tag}?`,
+        answer: rating >= 3 ? `I'm interested in ${tag}` : `Not interested in ${tag}`
+      }));
 
-    // Add tags with rating 3 or higher to user preferences
-    Object.entries(ratings).forEach(([tag, rating]) => {
-      if (rating >= 3 && !userPreferences.includes(tag)) {
-        addUserPreference(tag);
+      // 🎯 FIX: Actually call AI service to save survey
+      console.log('🔄 Submitting survey to AI backend...');
+      const result = await aiService.submitSurvey(formattedResponses);
+      console.log('✅ Survey saved to AI backend:', result);
+
+      // Add tags with rating 3 or higher to user preferences
+      Object.entries(ratings).forEach(([tag, rating]) => {
+        if (rating >= 3 && !userPreferences.includes(tag)) {
+          addUserPreference(tag);
+        }
+      });
+
+      // Call onSubmit prop if provided (for additional handling)
+      if (onSubmit) {
+        onSubmit(formattedResponses);
       }
-    });
-
-    // Call onSubmit prop if provided (for AI backend)
-    if (onSubmit) {
-      onSubmit(formattedResponses);
+      
+      // Update last survey date
+      localStorage.setItem('lastSurveyDate', new Date().toISOString());
+      
+      onClose();
+      setCurrentStep(0);
+      setRatings({});
+      
+      // Show success message
+      alert('🎉 Mr. Tailor has learned your preferences! Your feed will now be more personalized.');
+    } catch (error) {
+      console.error('❌ Error submitting survey:', error);
+      alert('❌ Failed to save preferences. Please try again.');
     }
-    
-    onClose();
-    setCurrentStep(0);
-    setRatings({});
-    
-    // Show success message
-    alert('🎉 Mr. Tailor has learned your preferences! Your feed will now be more personalized.');
   };
 
   const handleSkip = () => {

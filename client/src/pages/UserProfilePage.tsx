@@ -67,10 +67,17 @@ const UserProfilePage: React.FC = () => {
   // Fetch user profile data
   useEffect(() => {
     const fetchUserProfile = async () => {
-      if (!userId) return;
+      if (!userId) {
+        setError('User ID not provided');
+        setLoading(false);
+        return;
+      }
       
       try {
         setLoading(true);
+        setError(null);
+        console.log('🔄 Fetching profile for user ID:', userId);
+        
         const token = localStorage.getItem('token');
         const response = await fetch(`${API_URL}/users/${userId}`, {
           headers: {
@@ -81,15 +88,16 @@ const UserProfilePage: React.FC = () => {
         
         if (response.ok) {
           const data = await response.json();
-          console.log('🔍 User profile data:', data.user);
-          console.log('🔍 First follower:', data.user.followers[0]);
+          console.log('✅ User profile data received:', data.user);
           setUserProfile(data.user);
           setIsFollowing(data.user.isFollowing);
         } else {
+          const errorData = await response.json();
+          console.error('❌ API Error:', errorData);
           setError('User not found');
         }
       } catch (error) {
-        console.error('Failed to fetch user profile:', error);
+        console.error('❌ Failed to fetch user profile:', error);
         setError('Failed to load user profile');
       } finally {
         setLoading(false);
@@ -157,6 +165,7 @@ const UserProfilePage: React.FC = () => {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
         <CircularProgress />
+        <Typography sx={{ ml: 2 }}>Loading profile...</Typography>
       </Box>
     );
   }
@@ -165,6 +174,13 @@ const UserProfilePage: React.FC = () => {
     return (
       <Box sx={{ p: 2 }}>
         <Alert severity="error">{error || 'User not found'}</Alert>
+        <Button 
+          onClick={() => navigate(-1)} 
+          sx={{ mt: 2 }}
+          variant="outlined"
+        >
+          Go Back
+        </Button>
       </Box>
     );
   }
@@ -303,9 +319,20 @@ const UserProfilePage: React.FC = () => {
           {userProfile.followers && userProfile.followers.length > 0 ? (
             <Box>
               {userProfile.followers.map((follower) => (
-                <Box key={follower._id} sx={{ display: 'flex', alignItems: 'center', py: 2, borderBottom: 1, borderColor: 'divider' }}>
+                <Box 
+                  key={follower._id} 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    py: 2, 
+                    borderBottom: 1, 
+                    borderColor: 'divider',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => navigate(`/profile/${follower._id}`)}
+                >
                   <Avatar 
-                    src={follower.profilePic || follower.profilePicture} // Try both fields
+                    src={follower.profilePic || follower.profilePicture}
                     sx={{ mr: 2 }}
                     alt={follower.username}
                   >
@@ -334,9 +361,20 @@ const UserProfilePage: React.FC = () => {
           {userProfile.following && userProfile.following.length > 0 ? (
             <Box>
               {userProfile.following.map((followingUser) => (
-                <Box key={followingUser._id} sx={{ display: 'flex', alignItems: 'center', py: 2, borderBottom: 1, borderColor: 'divider' }}>
+                <Box 
+                  key={followingUser._id} 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    py: 2, 
+                    borderBottom: 1, 
+                    borderColor: 'divider',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => navigate(`/profile/${followingUser._id}`)}
+                >
                   <Avatar 
-                    src={followingUser.profilePic || followingUser.profilePicture} // Try both fields
+                    src={followingUser.profilePic || followingUser.profilePicture}
                     sx={{ mr: 2 }}
                     alt={followingUser.username}
                   >

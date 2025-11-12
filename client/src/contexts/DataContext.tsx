@@ -75,6 +75,7 @@ interface DataContextType {
   addPost: (postData: Omit<Post, '_id' | 'createdAt' | 'userId' | 'username'>) => Promise<void>;
   likePost: (postId: string) => Promise<void>;
   addUserPreference: (tag: string) => Promise<void>;
+  removeUserPreference: (tag: string) => Promise<void>; // ADD THIS LINE
   updateUserPreferences: (preferences: any) => Promise<void>;
   updateUserStats: () => void;
   followUser: (userId: string) => Promise<void>;
@@ -293,6 +294,31 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     }
   }, []);
 
+  // ADD THIS FUNCTION: removeUserPreference
+  const removeUserPreference = useCallback(async (tag: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/users/preferences`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ tag })
+      });
+      
+      if (response.ok) {
+        setUserPreferences(prev => prev.filter(pref => pref !== tag));
+        console.log('✅ Preference removed:', tag);
+      } else {
+        throw new Error('Failed to remove preference');
+      }
+    } catch (error) {
+      console.error('Failed to remove preference:', error);
+      throw error;
+    }
+  }, []);
+
   const updateUserPreferences = useCallback(async (preferences: any) => {
     try {
       const token = localStorage.getItem('token');
@@ -404,6 +430,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     addPost,
     likePost,
     addUserPreference,
+    removeUserPreference, // ADD THIS LINE
     updateUserPreferences,
     updateUserStats,
     followUser,
@@ -421,6 +448,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     addPost,
     likePost,
     addUserPreference,
+    removeUserPreference, // ADD THIS LINE
     updateUserPreferences,
     updateUserStats,
     followUser,

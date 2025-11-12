@@ -1,28 +1,13 @@
 import React, { createContext, useContext, useState, ReactNode, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
+import { aiService } from '../services/aiService';
+import { User, Post } from '../types'; // IMPORT FROM TYPES
 
-// Import updated types from DataContext (MongoDB structure)
-interface Post {
-  _id: string;
-  userId: string;
-  username: string;
-  profilePicture?: string;
-  caption: string;
-  tags: string[];
-  likes: string[];
-  comments: any[];
-  createdAt: string;
-  imageUrl?: string;
-}
+// REMOVE THESE LOCAL INTERFACES:
+// interface Post { ... }
+// interface User { ... }
 
-interface User {
-  _id: string;
-  username: string;
-  email: string;
-  profilePicture?: string;
-  createdAt: string;
-}
-
+// Keep only SearchResult and other interfaces that aren't in your types file
 interface SearchResult {
   posts: Post[];
   users: User[];
@@ -74,11 +59,25 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
   const { currentUser } = useAuth();
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
+  // Load AI suggested users based on preferences
+  const loadSuggestedUsers = async () => {
+    if (!currentUser) return;
+    
+    try {
+      const suggestions = await aiService.getSuggestedUsers(currentUser._id);
+      setSuggestedUsers(suggestions);
+    } catch (error) {
+      console.error('Error loading suggested users:', error);
+      setSuggestedUsers([]);
+    }
+  };
+
   // Load trending data and recent searches on mount
   React.useEffect(() => {
     fetchTrendingData();
     loadRecentSearches();
-  }, []);
+    loadSuggestedUsers(); // ADD THIS LINE
+  }, [currentUser]); // ADD currentUser dependency
 
   const fetchTrendingData = async () => {
     try {

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
+import { aiService } from '../services/aiService'; // ADDED IMPORT
 
 export interface NewPostData {
   caption: string;
@@ -161,6 +162,19 @@ export const PostProvider: React.FC<PostProviderProps> = ({ children }) => {
     try {
       const token = localStorage.getItem('token');
       console.log(`🔄 Liking post ${postId} for user ${userId}, isLiked: ${isLiked}`);
+      
+      // 🎯 FIX: Get the post data first to extract tags for AI tracking
+      const post = posts.find(p => p._id === postId);
+      const postTags = post?.tags || [];
+      
+      console.log('🎯 Post tags for AI tracking:', postTags);
+      
+      // 🎯 FIX: Record AI interaction BEFORE the like API call
+      if (isLiked) {
+        await aiService.unlikePostWithAI(postId, postTags);
+      } else {
+        await aiService.likePostWithAI(postId, postTags);
+      }
       
       // FIXED: Changed from POST to PUT to match backend
       const response = await fetch(`${API_URL}/posts/${postId}/like`, {

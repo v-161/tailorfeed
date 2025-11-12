@@ -47,6 +47,21 @@ const userSchema = new mongoose.Schema({
     ref: 'User'
   }],
   
+  // MAIN PREFERENCES FIELD (ADD THIS)
+  preferences: {
+    interests: [{ type: String }],
+    theme: {
+      type: String,
+      enum: ['light', 'dark'],
+      default: 'light'
+    },
+    aiPreferences: {
+      lastSurveyDate: Date,
+      contentPreferences: [String],
+      engagementScore: Number
+    }
+  },
+  
   // AI Preferences for Mr. Tailor
   aiPreferences: {
     interests: [{ type: String }],
@@ -79,7 +94,11 @@ const userSchema = new mongoose.Schema({
     emailNotifications: { type: Boolean, default: false },
     profilePublic: { type: Boolean, default: true },
     showOnlineStatus: { type: Boolean, default: true }
-  }
+  },
+  posts: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Post'
+  }],
 }, {
   timestamps: true
 });

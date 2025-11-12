@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, TextField, Typography, Paper, List, ListItem, ListItemText,
@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import {
   Search, TrendingUp, Person, Tag, History, Clear,
-  SmartToy, Explore, Favorite, Comment
+  SmartToy, Explore
 } from '@mui/icons-material';
 import { useSearchContext } from '../contexts/SearchContext';
 import { useDataContext } from '../contexts/DataContext';
@@ -22,7 +22,7 @@ interface PostProps {
 
 const Post: React.FC<PostProps> = ({ post, onLike, onUserClick }) => {
   const username = post.username || 'Unknown User';
-  const profilePicture = post.profilePicture || 'https://placehold.co/100x100/60A5FA/ffffff?text=U';
+  const profilePicture = post.profilePicture || post.profilePic || 'https://placehold.co/100x100/60A5FA/ffffff?text=U';
   const firstLetter = username[0]?.toUpperCase() || 'U';
 
   return (
@@ -69,6 +69,7 @@ const SearchPage: React.FC = () => {
     searchResults,
     recentSearches,
     trendingTags,
+    suggestedUsers,
     setSearchQuery,
     performSearch,
     clearSearch,
@@ -121,9 +122,10 @@ const SearchPage: React.FC = () => {
     console.log('Liked post:', postId);
   };
 
-  // FIXED: Navigate to user profile
+  // FIXED: Use the correct route pattern that matches App.tsx
   const handleUserClick = (userId: string) => {
-    navigate(`/profile/${userId}`);
+    console.log('🎯 Navigating to profile for user:', userId);
+    navigate(`/profile/${userId}`); // ✅ CORRECT: Matches App.tsx route
   };
 
   const hasResults = searchResults.posts.length > 0 || 
@@ -133,10 +135,39 @@ const SearchPage: React.FC = () => {
   // AI-powered search suggestions based on user preferences
   const aiSuggestions = userPreferences?.slice(0, 3) || [];
 
-  // Safe user rendering function - REMOVED FOLLOW BUTTON
+  // Safe user rendering function
   const renderUserItem = (user: any) => {
     const username = user.username || 'Unknown User';
-    const profilePicture = user.profilePicture || 'https://placehold.co/100x100/60A5FA/ffffff?text=U';
+    const profilePicture = user.profilePicture || user.avatar || user.profilePic || 'https://placehold.co/100x100/60A5FA/ffffff?text=U';
+    const firstLetter = username[0]?.toUpperCase() || 'U';
+
+    return (
+      <ListItem 
+        key={user._id} 
+        sx={{ 
+          px: 0, 
+          py: 1,
+          cursor: 'pointer'
+        }}
+        onClick={() => handleUserClick(user._id)}
+      >
+        <ListItemIcon sx={{ minWidth: 40 }}>
+          <Avatar src={profilePicture} sx={{ bgcolor: 'primary.main' }}>
+            {firstLetter}
+          </Avatar>
+        </ListItemIcon>
+        <ListItemText 
+          primary={<Typography fontWeight="medium">{username}</Typography>}
+          secondary={`@${username.toLowerCase()}`}
+        />
+      </ListItem>
+    );
+  };
+
+  // Suggested users rendering function
+  const renderSuggestedUser = (user: any) => {
+    const username = user.username || 'Unknown User';
+    const profilePicture = user.profilePicture || user.avatar || user.profilePic || 'https://placehold.co/100x100/60A5FA/ffffff?text=U';
     const firstLetter = username[0]?.toUpperCase() || 'U';
 
     return (
@@ -237,15 +268,40 @@ const SearchPage: React.FC = () => {
 
           {/* Results Content */}
           <Box sx={{ p: 2 }}>
-            {/* Posts Results */}
-            {(activeTab === 'all' || activeTab === 'posts') && searchResults.posts.map(post => (
-              <Post 
-                key={post._id} 
-                post={post} 
-                onLike={() => handleLikePost(post._id)}
-                onUserClick={handleUserClick}
-              />
-            ))}
+            {(activeTab === 'all' || activeTab === 'posts') && searchResults.posts.map((item: any) => {
+  const handlePostUserClick = () => {
+    console.log('🖱️ Clicked post:', {
+      postId: item._id,
+      username: item.username,
+      availableUsers: searchResults.users
+    });
+
+    // Find the user in search results by username - use ANY type to avoid TypeScript errors
+    const userFromResults = searchResults.users.find((user: any) => 
+      user.username === item.username
+    );
+
+    if (userFromResults) {
+      // Use whatever ID field exists
+      const userId = (userFromResults as any).id || (userFromResults as any)._id;
+      console.log('✅ Found matching user:', userFromResults);
+      console.log('🎯 Navigating to profile for user ID:', userId);
+      navigate(`/profile/${userId}`);
+    } else {
+      console.error('❌ No matching user found for username:', item.username);
+      console.log('🔍 Available users:', searchResults.users);
+    }
+  };
+
+  return (
+    <Post 
+      key={item._id || item.id} 
+      post={item} 
+      onLike={() => handleLikePost(item._id || item.id)}
+      onUserClick={handlePostUserClick}
+    />
+  );
+})}
 
             {/* Users Results */}
             {(activeTab === 'all' || activeTab === 'users') && searchResults.users.map(renderUserItem)}
@@ -285,6 +341,22 @@ const SearchPage: React.FC = () => {
       {/* Discovery Section (Shows when no search) */}
       {!loading && !localQuery && (
         <Box>
+          {/* AI Suggested Users Section */}
+          {suggestedUsers && suggestedUsers.length > 0 && (
+            <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'primary.main' }}>
+                <SmartToy color="primary" />
+                Suggested Users
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                People who post about your interests
+              </Typography>
+              <List sx={{ py: 0 }}>
+                {suggestedUsers.map(renderSuggestedUser)}
+              </List>
+            </Paper>
+          )}
+
           {/* Mr. Tailor AI Suggestions */}
           {aiSuggestions.length > 0 && (
             <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>

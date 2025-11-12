@@ -1,3 +1,4 @@
+import { User } from '../types';
 import { api } from './api';
 
 export interface AIInteraction {
@@ -130,6 +131,25 @@ class AIService {
       // Don't throw - we don't want to break the unlike functionality
     }
   }
+
+  // Get suggested users based on AI preferences
+async getSuggestedUsers(currentUserId: string): Promise<User[]> {
+  try {
+    console.log('🔄 Fetching AI suggestions for user:', currentUserId);
+    const response = await api.get(`/ai/suggestions/users/${currentUserId}`);
+    console.log('✅ AI suggestions response:', response.data);
+    
+    // ✅ FIX: Access suggestedUsers from response data
+    return response.data.suggestedUsers || [];
+  } catch (error: any) {
+    console.error('❌ Error getting suggested users:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    return [];
+  }
+}
 }
 
 export const aiService = new AIService();

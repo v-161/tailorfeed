@@ -204,6 +204,120 @@ router.post('/unfollow', auth, async (req, res) => {
   }
 });
 
+// @route   POST /api/users/preferences
+// @desc    Add a tag to user preferences
+router.post('/preferences', auth, async (req, res) => {
+  try {
+    const { tag } = req.body;
+    const userId = req.user._id;
+
+    if (!tag) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Tag is required' 
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    // Initialize preferences if they don't exist
+    if (!user.preferences) {
+      user.preferences = { interests: [] };
+    }
+
+    // Add tag if it doesn't already exist
+    if (!user.preferences.interests.includes(tag)) {
+      user.preferences.interests.push(tag);
+      await user.save();
+    }
+
+    console.log('✅ Preference added:', {
+      userId: user._id,
+      username: user.username,
+      addedTag: tag,
+      allInterests: user.preferences.interests
+    });
+
+    res.json({
+      success: true,
+      message: 'Preference added successfully',
+      preferences: user.preferences
+    });
+
+  } catch (error) {
+    console.error('❌ Error adding preference:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to add preference',
+      error: error.message 
+    });
+  }
+});
+
+// @route   DELETE /api/users/preferences
+// @desc    Remove a tag from user preferences
+router.delete('/preferences', auth, async (req, res) => {
+  try {
+    const { tag } = req.body;
+    const userId = req.user._id;
+
+    if (!tag) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Tag is required' 
+      });
+    }
+
+    // Find user and remove the tag from preferences
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    // Initialize preferences if they don't exist
+    if (!user.preferences) {
+      user.preferences = { interests: [] };
+    }
+
+    // Remove the tag from interests array
+    user.preferences.interests = user.preferences.interests.filter(
+      interest => interest !== tag
+    );
+
+    await user.save();
+
+    console.log('✅ Preference removed:', {
+      userId: user._id,
+      username: user.username,
+      removedTag: tag,
+      remainingInterests: user.preferences.interests
+    });
+
+    res.json({
+      success: true,
+      message: 'Preference removed successfully',
+      preferences: user.preferences
+    });
+
+  } catch (error) {
+    console.error('❌ Error removing preference:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to remove preference',
+      error: error.message 
+    });
+  }
+});
+
 // @route   GET /api/users/profile
 // @desc    Get user profile
 router.get('/profile', auth, async (req, res) => {
