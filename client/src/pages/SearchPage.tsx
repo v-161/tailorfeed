@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import {
   Search, TrendingUp, Person, Tag, History, Clear,
-  SmartToy, Explore
+  SmartToy, Explore, Refresh
 } from '@mui/icons-material';
 import { useSearchContext } from '../contexts/SearchContext';
 import { useDataContext } from '../contexts/DataContext';
@@ -74,13 +74,28 @@ const SearchPage: React.FC = () => {
     performSearch,
     clearSearch,
     addToRecentSearches,
-    loading
+    loading,
+    fetchTrendingData // Make sure this is in your SearchContext
   } = useSearchContext();
 
   const { userPreferences } = useDataContext();
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'all' | 'posts' | 'users' | 'tags'>('all');
   const [localQuery, setLocalQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  // 🎯 ADD: Manual refresh function
+  const handleRefreshSuggestions = async () => {
+    setRefreshing(true);
+    try {
+      await fetchTrendingData();
+      console.log('✅ Refreshed suggestions based on current preferences');
+    } catch (error) {
+      console.error('Failed to refresh suggestions:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Single source of truth for debouncing
   useEffect(() => {
@@ -344,12 +359,22 @@ const SearchPage: React.FC = () => {
           {/* AI Suggested Users Section */}
           {suggestedUsers && suggestedUsers.length > 0 && (
             <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'primary.main' }}>
-                <SmartToy color="primary" />
-                Suggested Users
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'primary.main' }}>
+                  <SmartToy color="primary" />
+                  Suggested Users
+                </Typography>
+                <Button 
+                  size="small" 
+                  onClick={handleRefreshSuggestions}
+                  disabled={refreshing}
+                  startIcon={<Refresh />}
+                >
+                  {refreshing ? 'Refreshing...' : 'Refresh'}
+                </Button>
+              </Box>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                People who post about your interests
+                People who post about your interests: {userPreferences.join(', ')}
               </Typography>
               <List sx={{ py: 0 }}>
                 {suggestedUsers.map(renderSuggestedUser)}
