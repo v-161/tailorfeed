@@ -163,22 +163,15 @@ export const PostProvider: React.FC<PostProviderProps> = ({ children }) => {
       const token = localStorage.getItem('token');
       console.log(`🔄 Liking post ${postId} for user ${userId}, isLiked: ${isLiked}`);
       
-      // 🎯 FIX: Get the post data first to extract tags for AI tracking
+      // Get the post data first to extract tags for AI tracking
       const post = posts.find(p => p._id === postId);
       const postTags = post?.tags || [];
       
       console.log('🎯 Post tags for AI tracking:', postTags);
       
-      // 🎯 FIX: Record AI interaction BEFORE the like API call
-      if (isLiked) {
-        await aiService.unlikePostWithAI(postId, postTags);
-      } else {
-        await aiService.likePostWithAI(postId, postTags);
-      }
-      
       // FIXED: Changed from POST to PUT to match backend
       const response = await fetch(`${API_URL}/posts/${postId}/like`, {
-        method: 'PUT', // CHANGED FROM POST TO PUT
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -195,7 +188,27 @@ export const PostProvider: React.FC<PostProviderProps> = ({ children }) => {
         const result = await response.json();
         console.log('✅ Like API success:', result);
         
-        // FIXED: Update local state immediately with proper like handling
+        // 🎯 CRITICAL FIX: Record AI interaction AFTER successful like/unlike
+        try {
+          if (isLiked) {
+            await aiService.unlikePostWithAI(postId, postTags);
+          } else {
+            await aiService.likePostWithAI(postId, postTags);
+          }
+          console.log('✅ AI interaction recorded');
+          
+          // 🎯 FIX: Trigger AI data refresh for real-time updates
+          setTimeout(() => {
+            if (typeof (window as any).refreshAIData === 'function') {
+              console.log('🔄 Triggering AI data refresh after like/unlike');
+              (window as any).refreshAIData();
+            }
+          }, 500);
+        } catch (aiError) {
+          console.error('❌ AI tracking failed, but like was successful:', aiError);
+        }
+        
+        // Update local state immediately with proper like handling
         setPosts(prevPosts =>
           prevPosts.map(post => {
             if (post._id === postId) {
