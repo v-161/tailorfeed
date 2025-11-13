@@ -234,9 +234,17 @@ export const PostProvider: React.FC<PostProviderProps> = ({ children }) => {
         );
         
       } else {
-        const errorText = await response.text();
-        console.error('❌ Like API error:', errorText);
-        throw new Error(`Like failed: ${errorText}`);
+        // ✅ IMPROVED ERROR HANDLING: Handle both JSON and text responses
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || JSON.stringify(errorData);
+        } catch {
+          const errorText = await response.text();
+          errorMessage = errorText || errorMessage;
+        }
+        console.error('❌ Like API error:', errorMessage);
+        throw new Error(`Like failed: ${errorMessage}`);
       }
     } catch (err) {
       console.error("❌ Failed to like/unlike post:", err);
