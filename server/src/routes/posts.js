@@ -34,7 +34,7 @@ router.get('/', async (req, res) => {
           userId: userData._id || post.userId,
           username: userData.username || post.username || 'Unknown User',
           profilePic: userData.profilePic || post.profilePic,
-          profilePicture: userData.profilePic || post.profilePic, // Add both for compatibility
+          profilePicture: userData.profilePic || post.profilePic,
           caption: post.caption || '',
           imageUrl: post.imageUrl || '',
           tags: post.tags || [],
@@ -64,9 +64,9 @@ router.get('/liked', auth, async (req, res) => {
     
     console.log('🔍 Fetching liked posts for authenticated user:', userId);
 
-    // Find all posts where the user has liked (using new like structure)
+    // ✅ REVERT: Use old like structure for compatibility
     const likedPosts = await Post.find({
-      'likes.userId': userId
+      likes: userId
     })
       .populate('userId', 'username profilePic')
       .sort({ createdAt: -1 });
@@ -113,9 +113,9 @@ router.get('/liked/:userId', async (req, res) => {
     
     console.log('🔍 Fetching liked posts for user:', userId);
 
-    // Find all posts where the user has liked (using new like structure)
+    // ✅ REVERT: Use old like structure for compatibility
     const likedPosts = await Post.find({
-      'likes.userId': userId
+      likes: userId
     })
       .populate('userId', 'username profilePic')
       .sort({ createdAt: -1 });
@@ -186,7 +186,7 @@ router.post('/', auth, async (req, res) => {
         userId: post.userId,
         username: post.username,
         profilePic: post.profilePic,
-        profilePicture: post.profilePic, // Add both for compatibility
+        profilePicture: post.profilePic,
         caption: post.caption,
         imageUrl: post.imageUrl,
         tags: post.tags,
@@ -223,23 +223,10 @@ router.put('/:id/like', auth, async (req, res) => {
     }
 
     if (action === 'like') {
-      // ✅ COMPATIBILITY FIX: Check both old and new like structures
-      const alreadyLiked = post.likes.some(like => {
-        if (like && typeof like === 'object' && like.userId) {
-          // New structure: like is an object with userId
-          return like.userId.toString() === userId;
-        } else {
-          // Old structure: like is just the userId
-          return like.toString() === userId;
-        }
-      });
-      
-      if (!alreadyLiked) {
-        // ✅ Always use new structure when adding likes
-        post.likes.push({
-          userId: userId,
-          likedAt: new Date()
-        });
+      // ✅ REVERT: Simple array.includes check
+      if (!post.likes.includes(userId)) {
+        // ✅ REVERT: Just push userId (no object, no timestamp)
+        post.likes.push(userId);
         
         // CREATE NOTIFICATION FOR POST OWNER (only if not liking own post)
         if (post.userId._id.toString() !== userId) {
@@ -259,16 +246,8 @@ router.put('/:id/like', auth, async (req, res) => {
         }
       }
     } else if (action === 'unlike') {
-      // ✅ COMPATIBILITY FIX: Remove from both old and new structures
-      post.likes = post.likes.filter(like => {
-        if (like && typeof like === 'object' && like.userId) {
-          // New structure: like is an object with userId
-          return like.userId.toString() !== userId;
-        } else {
-          // Old structure: like is just the userId
-          return like.toString() !== userId;
-        }
-      });
+      // ✅ REVERT: Simple array filter
+      post.likes = post.likes.filter(likeId => likeId.toString() !== userId);
     }
 
     await post.save();
@@ -351,7 +330,7 @@ router.post('/:id/comments', auth, async (req, res) => {
         userId: updatedPost.userId,
         username: updatedPost.username,
         profilePic: updatedPost.profilePic,
-        profilePicture: updatedPost.profilePic, // Add both for compatibility
+        profilePicture: updatedPost.profilePic,
         caption: updatedPost.caption,
         imageUrl: updatedPost.imageUrl,
         tags: updatedPost.tags,
@@ -388,7 +367,7 @@ router.get('/user/:userId', async (req, res) => {
         userId: post.userId,
         username: post.username,
         profilePic: post.profilePic,
-        profilePicture: post.profilePic, 
+        profilePicture: post.profilePic,
         caption: post.caption,
         imageUrl: post.imageUrl,
         tags: post.tags,
