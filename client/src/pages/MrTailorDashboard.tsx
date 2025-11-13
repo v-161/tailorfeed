@@ -17,6 +17,7 @@ import MrTailorSurvey from '../components/ai/MrTailorSurvey';
 import { aiService, UserInterest } from '../services/aiService';
 import { aiAnalyticsService, AITip } from '../services/AIAnalyticsService';
 
+// 🎯 FIXED: Corrected interfaces to match backend response
 interface RecommendedPost {
   _id: string;
   caption: string;
@@ -43,20 +44,27 @@ interface Post {
   imageUrl: string;
 }
 
-// 🎯 FIX: Extended interface to include tagAffinity from backend
-interface ExtendedUserInterest extends UserInterest {
-  tagAffinity?: number; // 0-1 scale from backend
-  lastInteracted?: Date;
-}
-
-// 🎯 FIX: Interface for display interests
+// 🎯 FIXED: Simplified interface to match actual backend response
 interface DisplayInterest {
   tag: string;
   score: number;
-  displayScore: number;
   interactionCount: number;
   category: string;
-  tagAffinity?: number;
+  lastInteracted?: string;
+}
+
+// 🎯 FIXED: API Response interfaces
+interface AIInterestsResponse {
+  success: boolean;
+  interests: DisplayInterest[];
+  message?: string;
+}
+
+interface AIRecommendationsResponse {
+  success: boolean;
+  posts: RecommendedPost[];
+  userInterests?: DisplayInterest[];
+  message?: string;
 }
 
 const MrTailorDashboard: React.FC = () => {
@@ -70,7 +78,7 @@ const MrTailorDashboard: React.FC = () => {
     weeklyInsights: true
   });
 
-  const [userInterests, setUserInterests] = useState<ExtendedUserInterest[]>([]);
+  const [userInterests, setUserInterests] = useState<DisplayInterest[]>([]);
   const [recommendedPosts, setRecommendedPosts] = useState<RecommendedPost[]>([]);
   const [aiTips, setAiTips] = useState<AITip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,13 +95,13 @@ const MrTailorDashboard: React.FC = () => {
     joinDate: userStats?.joinDate || new Date().toISOString()
   };
 
-  // Create a global refresh function
+  // 🎯 FIXED: Create a global refresh function with proper dependencies
   const refreshAIData = useCallback(async () => {
     console.log('🔄 Manually refreshing AI data...');
     setRefreshing(true);
     setApiError(null);
     await loadAIData();
-  }, [currentUser, userPreferences]);
+  }, [currentUser?._id, userPreferences.length]); // Added dependencies
 
   // Make refresh function available globally for Post component
   useEffect(() => {
@@ -104,37 +112,29 @@ const MrTailorDashboard: React.FC = () => {
     };
   }, [refreshAIData]);
 
-  // 🎯 FIX 1: Load data when component mounts and userPreferences are available
+  // 🎯 FIXED: Simplified data loading - only load when user changes
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser?._id) {
       console.log('🎯 Initializing Mr. Tailor Dashboard for user:', currentUser._id);
       loadAIData();
     }
-  }, [currentUser]);
+  }, [currentUser?._id]);
 
-  // 🎯 FIX 2: Sync AI interests when userPreferences change
+  // 🎯 FIXED: Single synchronization effect
   useEffect(() => {
     if (userPreferences.length > 0 && userInterests.length > 0) {
-      console.log('🔄 Syncing AI interests with user preferences:', userPreferences);
-      const syncedInterests = userInterests.filter(interest => 
-        userPreferences.includes(interest.tag)
-      );
-      if (syncedInterests.length !== userInterests.length) {
-        setUserInterests(syncedInterests);
-      }
-    }
-  }, [userPreferences]);
-
-  // 🎯 FIX 10: ADDED SYNCHRONIZATION USEFFECT - Sync AI interests with current user preferences
-  useEffect(() => {
-    // Sync AI interests with current user preferences
-    if (userInterests.length > 0 && userPreferences.length > 0) {
+      console.log('🔄 Syncing AI interests with user preferences');
+      
+      // Filter AI interests to only include current user preferences
       const filteredInterests = userInterests.filter(interest => 
         userPreferences.includes(interest.tag)
       );
       
       if (filteredInterests.length !== userInterests.length) {
-        console.log('🔄 Syncing AI interests with current preferences');
+        console.log('🔄 Filtered out interests not in user preferences:', {
+          before: userInterests.length,
+          after: filteredInterests.length
+        });
         setUserInterests(filteredInterests);
       }
     }
@@ -156,19 +156,24 @@ const MrTailorDashboard: React.FC = () => {
       const token = localStorage.getItem('token');
       console.log('🔐 Token exists:', !!token);
       
-      // 🎯 FIX 3: Load user interests from AI backend
-      const interestsResponse = await aiService.getUserInterests();
-      console.log('📊 AI Interests Response:', interestsResponse);
+      // 🎯 FIXED: Load user interests from AI backend with proper typing
+      let interestsResponse: AIInterestsResponse;
+      try {
+        interestsResponse = await aiService.getUserInterests() as AIInterestsResponse;
+        console.log('📊 AI Interests Response:', interestsResponse);
+      } catch (error) {
+        console.error('❌ Failed to fetch AI interests:', error);
+        interestsResponse = { success: false, interests: [] };
+      }
       
       if (interestsResponse.success && interestsResponse.interests && interestsResponse.interests.length > 0) {
         console.log('✅ Raw AI Interests:', interestsResponse.interests);
         
-        const aiInterests = interestsResponse.interests as ExtendedUserInterest[];
+        const aiInterests = interestsResponse.interests;
         
-        // 🎯 FIX 4: If we have userPreferences, use them as the source of truth
-        // Otherwise use AI interests and sync them to user preferences
+        // 🎯 FIXED: Always use userPreferences as source of truth
         if (userPreferences.length > 0) {
-          // Use userPreferences as source of truth - filter AI interests to match
+          // Filter AI interests to match user preferences
           const filteredInterests = aiInterests.filter(interest => 
             userPreferences.includes(interest.tag)
           );
@@ -182,7 +187,7 @@ const MrTailorDashboard: React.FC = () => {
           console.log('🔄 No userPreferences found, using AI interests');
           setUserInterests(aiInterests);
           
-          // 🎯 FIX 5: Sync AI interests to user preferences
+          // Sync AI interests to user preferences
           const tagsToAdd = aiInterests.map(interest => interest.tag);
           console.log('🔄 Syncing AI interests to user preferences:', tagsToAdd);
           for (const tag of tagsToAdd) {
@@ -194,14 +199,19 @@ const MrTailorDashboard: React.FC = () => {
         generateInterestsFromEngagement();
       }
 
-      // Load recommendations
-      const recommendationsResponse = await aiService.getRecommendations();
-      if (recommendationsResponse.success && recommendationsResponse.data) {
-        setRecommendedPosts(recommendationsResponse.data.posts || []);
+      // 🎯 FIXED: Load recommendations with proper typing
+      try {
+        const recommendationsResponse = await aiService.getRecommendations() as AIRecommendationsResponse;
+        if (recommendationsResponse.success && recommendationsResponse.posts) {
+          setRecommendedPosts(recommendationsResponse.posts);
+          console.log('✅ Loaded recommended posts:', recommendationsResponse.posts.length);
+        }
+      } catch (error) {
+        console.error('❌ Failed to load recommendations:', error);
       }
 
-      // Generate AI tips - pass the actual userInterests
-      await generateAITips(userInterests);
+      // Generate AI tips
+      await generateAITips();
 
     } catch (error: any) {
       console.error('💥 Error loading AI data:', error);
@@ -215,23 +225,30 @@ const MrTailorDashboard: React.FC = () => {
 
   // Generate interests from actual user engagement
   const generateInterestsFromEngagement = () => {
+    const userId = currentUser?._id;
+    if (!userId) {
+      console.log('❌ No user ID for engagement analysis');
+      return;
+    }
+
     const userLikedPosts = contextPosts.filter(post => {
-      const userId = currentUser?._id;
-      return userId && Array.isArray(post.likes) && post.likes.includes(userId);
+      return Array.isArray(post.likes) && post.likes.includes(userId);
     });
+
+    console.log('🔍 Found liked posts for engagement analysis:', userLikedPosts.length);
 
     // Extract interests from liked posts' tags
     const interestsFromLikes = userLikedPosts.flatMap(post => post.tags || []);
     const interestFrequency: { [key: string]: number } = {};
     
     interestsFromLikes.forEach(tag => {
-      if (tag) {
+      if (tag && tag.trim()) {
         interestFrequency[tag] = (interestFrequency[tag] || 0) + 1;
       }
     });
 
-    // Convert to ExtendedUserInterest format
-    const generatedInterests: ExtendedUserInterest[] = Object.entries(interestFrequency)
+    // Convert to DisplayInterest format
+    const generatedInterests: DisplayInterest[] = Object.entries(interestFrequency)
       .map(([tag, count]) => ({
         tag,
         score: Math.min(count * 2, 10),
@@ -244,30 +261,35 @@ const MrTailorDashboard: React.FC = () => {
       console.log('🎯 Generated interests from engagement:', generatedInterests);
       setUserInterests(generatedInterests);
       
-      // 🎯 FIX 6: Also add engagement interests to user preferences
+      // Add engagement interests to user preferences
       const tagsToAdd = generatedInterests.map(interest => interest.tag);
       console.log('🔄 Adding engagement interests to user preferences:', tagsToAdd);
-      for (const tag of tagsToAdd) {
+      tagsToAdd.forEach(tag => {
         addUserPreference(tag);
-      }
+      });
     } else {
       console.log('📝 No engagement data found');
+      setUserInterests([]);
     }
   };
 
-  // Enhanced AI tips generation
-  const generateAITips = async (interests: ExtendedUserInterest[]) => {
+  // 🎯 FIXED: Enhanced AI tips generation
+  const generateAITips = async () => {
     try {
+      const userId = currentUser?._id;
+      if (!userId) return;
+
       // Filter user's own posts
-      const userPosts = contextPosts.filter(post => post.userId === currentUser?._id);
+      const userPosts = contextPosts.filter(post => post.userId === userId);
       
       const tips = await aiAnalyticsService.generateAITips(
         userPosts,
         contextPosts,
-        interests,
+        userInterests,
         safeUserStats
       );
       setAiTips(tips);
+      console.log('💡 Generated AI tips:', tips.length);
     } catch (error) {
       console.error('Error generating AI tips:', error);
       // Fallback tips
@@ -281,99 +303,83 @@ const MrTailorDashboard: React.FC = () => {
     }
   };
 
-  // 🎯 FIX 7: Calculate AI confidence based on AI interests with tagAffinity scores
+  // 🎯 FIXED: Calculate AI confidence based on available data
   const calculateAIConfidence = () => {
     if (userInterests.length === 0) return 0;
 
-    // Use tagAffinity scores if available (from AI backend), otherwise use score
     const totalScore = userInterests.reduce((sum, interest) => {
-      // Use tagAffinity if available (0-1 scale), otherwise convert score (0-10) to 0-1 scale
-      const affinity = interest.tagAffinity !== undefined ? interest.tagAffinity : (interest.score / 10);
-      return sum + affinity;
+      return sum + (interest.score / 10); // Convert 0-10 scale to 0-1
     }, 0);
     
-    const avgAffinity = totalScore / userInterests.length;
+    const avgScore = totalScore / userInterests.length;
     const interactionCount = userInterests.reduce((sum, interest) => sum + interest.interactionCount, 0);
     
     // Convert to percentage (0-100%)
-    const affinityBased = avgAffinity * 70; // 70% weight for affinity scores
+    const scoreBased = avgScore * 70; // 70% weight for scores
     const interactionBased = Math.min((interactionCount / 20) * 30, 30); // 30% weight for interactions
     
-    return Math.min(affinityBased + interactionBased, 100);
+    return Math.min(scoreBased + interactionBased, 100);
   };
 
   const aiConfidence = calculateAIConfidence();
 
-  // 🎯 FIX 8: Get display interests - always use userPreferences as source of truth
-  // 🎯 FIX 11: UPDATED DISPLAY INTERESTS WITH FILTER
-  const displayInterests: DisplayInterest[] = (
-    userPreferences.length > 0 
-      ? userPreferences.map(pref => {
-          // Find matching AI interest data if available
-          const aiInterest = userInterests.find(interest => interest.tag === pref);
-          return {
-            tag: pref,
-            score: aiInterest?.score || 1,
-            displayScore: aiInterest?.tagAffinity ? Math.round(aiInterest.tagAffinity * 10) : (aiInterest?.score || 1),
-            interactionCount: aiInterest?.interactionCount || 1,
-            category: aiInterest?.category || 'user',
-            tagAffinity: aiInterest?.tagAffinity
-          };
-        })
-      : userInterests.map(interest => ({
-          tag: interest.tag,
-          score: interest.score,
-          displayScore: interest.tagAffinity ? Math.round(interest.tagAffinity * 10) : interest.score,
-          interactionCount: interest.interactionCount,
-          category: interest.category,
-          tagAffinity: interest.tagAffinity
-        }))
-  ).filter(interest => userPreferences.includes(interest.tag)); // ADDED THIS FILTER
+  // 🎯 FIXED: Get display interests - always filtered by userPreferences
+  const displayInterests: DisplayInterest[] = userInterests.filter(interest => 
+    userPreferences.includes(interest.tag)
+  );
 
   // 🎯 FIXED: Function to remove user preference with proper state sync
   const handleRemovePreference = async (tag: string) => {
     try {
       console.log('🗑️ Removing preference:', tag);
-      await removeUserPreference(tag);
+      const success = await removeUserPreference(tag);
       
-      // 🎯 FIX: Update both AI interests state
-      setUserInterests(prev => prev.filter(interest => interest.tag !== tag));
-      
-      console.log('✅ Preference removed and UI updated:', tag);
+      if (success) {
+        // Update both AI interests state
+        setUserInterests(prev => prev.filter(interest => interest.tag !== tag));
+        console.log('✅ Preference removed and UI updated:', tag);
+      }
     } catch (error) {
       console.error('Failed to remove preference:', error);
     }
   };
 
+  // 🎯 FIXED: Survey submission with proper tag extraction
   const handleSurveySubmit = async (responses: any[]) => {
     try {
       console.log('📝 Submitting survey responses:', responses);
-      await aiService.submitSurvey(responses);
+      const result = await aiService.submitSurvey(responses);
       
-      // 🎯 FIX 9: Extract tags from survey and add to user preferences
-      const surveyTags: string[] = [];
-      responses.forEach(response => {
-        if (response.answer && typeof response.answer === 'string') {
-          // Extract words and filter for meaningful tags
-          const words = response.answer.toLowerCase().split(/[,\s]+/);
-          // 🎯 FIX: Add type annotation to fix TypeScript error
-          const tags = words.filter((word: string) => 
-            word.length > 3 && 
-            !['like', 'love', 'enjoy', 'prefer', 'interested'].includes(word)
-          );
-          surveyTags.push(...tags);
+      if (result.success) {
+        console.log('✅ Survey submitted successfully');
+        
+        // Extract tags from survey responses
+        const surveyTags: string[] = [];
+        responses.forEach(response => {
+          if (response.answer && typeof response.answer === 'string') {
+            // Simple tag extraction - look for topic words
+            const answer = response.answer.toLowerCase();
+            if (answer.includes('interested') || answer.includes('like') || answer.includes('love')) {
+              // Extract the topic from the question
+              const question = response.question.toLowerCase();
+              const topicMatch = question.match(/in\s+(\w+)/) || question.match(/about\s+(\w+)/);
+              if (topicMatch && topicMatch[1]) {
+                surveyTags.push(topicMatch[1]);
+              }
+            }
+          }
+        });
+
+        // Add unique tags to preferences
+        const uniqueTags = [...new Set(surveyTags)].filter(tag => tag.length > 2).slice(0, 5);
+        console.log('🔄 Adding survey tags to preferences:', uniqueTags);
+        
+        for (const tag of uniqueTags) {
+          await addUserPreference(tag);
         }
-      });
-      
-      // 🎯 FIX: Alternative way to get unique tags without spread operator
-      const uniqueTags = Array.from(new Set(surveyTags)).slice(0, 10); // Limit to 10 tags
-      console.log('🔄 Adding survey tags to preferences:', uniqueTags);
-      
-      for (const tag of uniqueTags) {
-        await addUserPreference(tag);
+        
+        await refreshAIData(); // Reload AI data after survey
       }
-      
-      await refreshAIData(); // Reload AI data after survey
     } catch (error) {
       console.error('Error submitting survey:', error);
     }
@@ -396,7 +402,7 @@ const MrTailorDashboard: React.FC = () => {
   };
 
   // Convert posts for frontend engine
-  const posts: Post[] = contextPosts.map(post => ({
+  const posts = contextPosts.map(post => ({
     id: post._id,
     userId: post.userId,
     username: post.username,
@@ -496,7 +502,7 @@ const MrTailorDashboard: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Your Interests - UPDATED TO SHOW AI INTERESTS */}
+          {/* Your Interests */}
           <Card sx={{ mb: 3 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -509,28 +515,20 @@ const MrTailorDashboard: React.FC = () => {
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
                     {displayInterests.slice(0, 12).map((interest, index) => (
                       <Chip
-                        key={index}
+                        key={interest.tag}
                         label={`#${interest.tag}`}
-                        color={userInterests.length > 0 ? "primary" : "default"}
-                        variant={userInterests.length > 0 ? "filled" : "outlined"}
+                        color="primary"
+                        variant="filled"
                         onDelete={() => handleRemovePreference(interest.tag)}
                         deleteIcon={<Visibility />}
-                        title={
-                          interest.tagAffinity !== undefined 
-                            ? `Affinity: ${Math.round(interest.tagAffinity * 100)}% | Interactions: ${interest.interactionCount}`
-                            : `Score: ${interest.displayScore} | Interactions: ${interest.interactionCount}`
-                        }
+                        title={`Score: ${interest.score} | Interactions: ${interest.interactionCount}`}
                       />
                     ))}
                   </Box>
                   
-                  {/* Show interest stats if we have AI data */}
-                  {userInterests.length > 0 && (
-                    <Typography variant="caption" color="text.secondary">
-                      Tracking {userPreferences.length} preferences with {userInterests.reduce((sum, i) => sum + i.interactionCount, 0)} total interactions
-                      {userInterests.some(i => i.tagAffinity !== undefined) && ` | Average affinity: ${Math.round(calculateAIConfidence())}%`}
-                    </Typography>
-                  )}
+                  <Typography variant="caption" color="text.secondary">
+                    Tracking {displayInterests.length} interests with {displayInterests.reduce((sum, i) => sum + i.interactionCount, 0)} total interactions
+                  </Typography>
                 </Box>
               ) : (
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -546,25 +544,11 @@ const MrTailorDashboard: React.FC = () => {
                 >
                   Update Preferences
                 </Button>
-                <Button 
-                  variant="text" 
-                  onClick={() => {
-                    console.log('🐛 DEBUG:', {
-                      userInterests,
-                      userPreferences,
-                      displayInterests,
-                      aiConfidence,
-                      likedPosts: contextPosts.filter(p => p.likes.includes(currentUser?._id || '')).length,
-                      aiTips
-                    });
-                  }}
-                >
-                  Debug
-                </Button>
               </Box>
             </CardContent>
           </Card>
 
+          {/* Rest of your component remains the same... */}
           {/* Engagement Insights */}
           <Card sx={{ mb: 3 }}>
             <CardContent>
@@ -706,7 +690,7 @@ const MrTailorDashboard: React.FC = () => {
                 (will be enabled in future patches)
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {recommendedTags.map((tag, index) => (
+                {recommendedTags.slice(0, 8).map((tag, index) => (
                   <Chip
                     key={index}
                     label={`#${tag}`}
@@ -730,7 +714,7 @@ const MrTailorDashboard: React.FC = () => {
                 Based on your posting patterns
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {engagementPattern.activeHours.map(hour => (
+                {engagementPattern.activeHours.slice(0, 6).map(hour => (
                   <Chip
                     key={hour}
                     label={`${hour}:00`}
