@@ -140,10 +140,14 @@ router.get('/', auth, async (req, res) => {
       })),
       posts: posts.map(post => ({
         _id: post._id,
+        userId: post.userId?._id || post.userId, // ✅ CRITICAL FIX: Include userId
         caption: post.caption,
         imageUrl: post.imageUrl,
         username: post.userId?.username || 'Unknown User',
         profilePicture: post.userId?.profilePic,
+        tags: post.tags || [], // ✅ Include tags for consistency
+        likes: post.likes || [], // ✅ Include likes array
+        comments: post.comments || [], // ✅ Include comments array
         likesCount: post.likes?.length || 0,
         commentsCount: post.comments?.length || 0,
         createdAt: post.createdAt
