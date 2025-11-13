@@ -32,18 +32,23 @@ export interface AITip {
 
 class AIAnalyticsService {
   
-  // Analyze user's engagement patterns for optimal timing (FIXED: now based on engagement, not just posting)
+  // Replace the analyzePostingPattern function:
   analyzePostingPattern(posts: Post[]): { bestHours: number[], bestDays: string[] } {
     if (posts.length === 0) {
       return { bestHours: [9, 12, 18], bestDays: ['Monday', 'Wednesday', 'Friday'] };
     }
 
-    const engagementHours = posts.map(post => {
+    // 🎯 FIX: Analyze engagement timing instead of posting timing
+    // Posts with more likes represent better engagement timing
+    const engagementHours = posts.flatMap(post => {
       const postHour = new Date(post.createdAt).getHours();
-      // Weight by engagement (likes count) - posts with more likes contribute more to timing analysis
-      const engagementWeight = (post.likes?.length || 0) + 1;
-      return Array(engagementWeight).fill(postHour); // Repeat hour based on engagement level
-    }).flat();
+      
+      // Weight by engagement level - posts with more likes represent better timing
+      const engagementWeight = Math.min((post.likes?.length || 0) + 1, 10);
+      
+      // Return the hour repeated based on engagement level
+      return Array(engagementWeight).fill(postHour);
+    });
 
     const hourCounts = engagementHours.reduce((acc, hour) => {
       acc[hour] = (acc[hour] || 0) + 1;
@@ -54,7 +59,7 @@ class AIAnalyticsService {
       .sort((a, b) => (b[1] as number) - (a[1] as number))
       .slice(0, 3)
       .map(([hour]) => parseInt(hour))
-      .sort((a, b) => a - b); // Sort chronologically for better reading
+      .sort((a, b) => a - b);
 
     return {
       bestHours: bestHours.length > 0 ? bestHours : [9, 12, 18],
