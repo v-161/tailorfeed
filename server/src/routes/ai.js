@@ -244,6 +244,8 @@ router.post('/survey', auth, async (req, res) => {
     const { responses } = req.body;
     const userId = req.user._id;
 
+    console.log('🎯 Survey received:', responses);
+
     let aiPreference = await AIPreference.findOne({ userId });
     if (!aiPreference) {
       aiPreference = new AIPreference({ userId });
@@ -255,29 +257,39 @@ router.post('/survey', auth, async (req, res) => {
       user.preferences = { interests: [] };
     }
 
-    responses.forEach(response => {
-      if (response.answer && typeof response.answer === 'string') {
-        const words = response.answer.toLowerCase().split(/\s+/);
-        const tags = extractTagsFromText(words);
-        
-        tags.forEach(tag => {
-          // Update AI preferences
-          const currentAffinity = aiPreference.tagAffinity.get(tag) || {
-            score: 0,
-            interactionCount: 0,
-            lastInteracted: new Date(),
-            category: categorizeTag(tag)
-          };
+    // 🎯 CRITICAL FIX: Extract tags directly from survey responses (not from text)
+    const tagsFromSurvey = responses
+      .map(response => {
+        // Extract tag from question: "How interested are you in {tag}?"
+        const match = response.question.match(/How interested are you in (.+)\?/);
+        return match ? match[1].toLowerCase().trim() : null;
+      })
+      .filter(tag => tag && tag.length > 0);
 
-          currentAffinity.score += 3;
-          currentAffinity.interactionCount += 1;
-          aiPreference.tagAffinity.set(tag, currentAffinity);
+    console.log('🎯 Tags extracted from survey:', tagsFromSurvey);
 
-          // ALSO UPDATE USER'S MAIN PREFERENCES
-          if (!user.preferences.interests.includes(tag)) {
-            user.preferences.interests.push(tag);
-          }
-        });
+    tagsFromSurvey.forEach((tag, index) => {
+      const response = responses[index];
+      const isInterested = response.answer && response.answer.includes('interested');
+      
+      if (isInterested) {
+        // Update AI preferences for interested tags
+        const currentAffinity = aiPreference.tagAffinity.get(tag) || {
+          score: 0,
+          interactionCount: 0,
+          lastInteracted: new Date(),
+          category: categorizeTag(tag)
+        };
+
+        currentAffinity.score += 5; // High weight for survey responses
+        currentAffinity.interactionCount += 1;
+        aiPreference.tagAffinity.set(tag, currentAffinity);
+
+        // ALSO UPDATE USER'S MAIN PREFERENCES
+        if (!user.preferences.interests.includes(tag)) {
+          user.preferences.interests.push(tag);
+          console.log('✅ Added tag to user preferences from survey:', tag);
+        }
       }
     });
 
@@ -293,7 +305,8 @@ router.post('/survey', auth, async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Survey responses recorded successfully'
+      message: 'Survey responses recorded successfully',
+      tagsAdded: tagsFromSurvey
     });
 
   } catch (error) {
@@ -314,12 +327,13 @@ router.get('/interests', auth, async (req, res) => {
     const user = await User.findById(userId);
     const currentUserPreferences = user?.preferences?.interests || [];
     
-    console.log('🎯 Current user preferences:', currentUserPreferences);
+    console.log('🎯 Current user preferences from DB:', currentUserPreferences);
 
     const aiPreference = await AIPreference.findOne({ userId });
 
     // If no AI preferences, return ONLY user's current preferences
     if (!aiPreference) {
+      console.log('🔄 No AI preferences found, returning user preferences');
       return res.json({
         success: true,
         interests: currentUserPreferences.map(tag => ({
@@ -327,6 +341,7 @@ router.get('/interests', auth, async (req, res) => {
           score: 5, // Default score
           interactionCount: 1,
           category: categorizeTag(tag),
+          tagAffinity: 0.5, // Add tagAffinity for frontend
           source: 'user_preferences'
         }))
       });
@@ -334,13 +349,18 @@ router.get('/interests', auth, async (req, res) => {
 
     // 🎯 CRITICAL FIX: Only return AI interests that are in CURRENT user preferences
     let interests = Array.from(aiPreference.tagAffinity.entries())
-      .filter(([tag, data]) => currentUserPreferences.includes(tag)) // 🎯 ONLY include tags in current preferences
+      .filter(([tag, data]) => {
+        const isInPreferences = currentUserPreferences.includes(tag);
+        console.log(`🔍 Tag ${tag}: inPreferences=${isInPreferences}, score=${data.score}`);
+        return isInPreferences && data.score > 0; // Only include positive engagement
+      })
       .sort(([,a], [,b]) => b.score - a.score)
       .map(([tag, data]) => ({
         tag,
         score: data.score,
         interactionCount: data.interactionCount,
         category: data.category,
+        tagAffinity: Math.min(data.score / 20, 1), // Convert to 0-1 scale for frontend
         source: 'ai_analysis'
       }));
 
@@ -354,11 +374,12 @@ router.get('/interests', auth, async (req, res) => {
         score: 5,
         interactionCount: 1,
         category: categorizeTag(tag),
+        tagAffinity: 0.5,
         source: 'user_preferences'
       }));
     }
 
-    console.log('🎯 Final interests to return:', interests.map(i => i.tag));
+    console.log('🎯 Final interests to return:', interests.length);
 
     res.json({
       success: true,
