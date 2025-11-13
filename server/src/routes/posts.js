@@ -110,11 +110,11 @@ router.post('/', auth, async (req, res) => {
 });
 
 // @route   PUT /api/posts/:id/like
-// @desc    Like/unlike a post - ✅ FIXED VERSION
+// @desc    Like/unlike a post - ✅ COMPLETELY FIXED VERSION
 router.put('/:id/like', auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user._id.toString(); // ✅ Get from authenticated user
+    const userId = req.user._id.toString();
 
     console.log('🔄 Like/Unlike request:', { 
       postId: id, 
@@ -131,21 +131,29 @@ router.put('/:id/like', auth, async (req, res) => {
       });
     }
 
-    // ✅ Determine action based on current state (server-side logic)
-    const isCurrentlyLiked = post.likes.some(likeId => 
-      likeId.toString() === userId
-    );
+    // ✅ CRITICAL FIX: Ensure likes is always an array
+    if (!post.likes || !Array.isArray(post.likes)) {
+      console.log('⚠️ Post likes was undefined/null, initializing as empty array');
+      post.likes = [];
+    }
 
     console.log('📊 Current like status:', {
       postId: post._id,
       currentLikes: post.likes.length,
-      isCurrentlyLiked: isCurrentlyLiked
+      likesArray: post.likes
     });
+
+    // ✅ SAFE: Now we can use .some() safely
+    const isCurrentlyLiked = post.likes.some(likeId => 
+      likeId && likeId.toString() === userId
+    );
+
+    console.log('🔍 User like status:', { isCurrentlyLiked, userId });
 
     let action;
     if (isCurrentlyLiked) {
       // Unlike the post
-      post.likes = post.likes.filter(likeId => likeId.toString() !== userId);
+      post.likes = post.likes.filter(likeId => likeId && likeId.toString() !== userId);
       action = 'unlike';
       console.log('✅ Post unliked by user:', userId);
     } else {
@@ -185,7 +193,7 @@ router.put('/:id/like', auth, async (req, res) => {
       message: `Post ${action}d successfully`,
       likesCount: post.likes.length,
       likes: post.likes,
-      isLiked: action === 'like' // ✅ Send back current state
+      isLiked: action === 'like'
     });
 
   } catch (error) {
@@ -304,7 +312,7 @@ router.get('/user/:userId', async (req, res) => {
         caption: post.caption,
         imageUrl: post.imageUrl,
         tags: post.tags,
-        likes: post.likes,
+        likes: post.likes || [], // ✅ Ensure likes is always an array
         comments: post.comments,
         commentsCount: post.comments?.length || 0,
         likesCount: post.likes?.length || 0,
