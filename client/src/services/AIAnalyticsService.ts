@@ -32,26 +32,29 @@ export interface AITip {
 
 class AIAnalyticsService {
   
-  // Analyze user's posting patterns for optimal timing
+  // Analyze user's engagement patterns for optimal timing (FIXED: now based on engagement, not just posting)
   analyzePostingPattern(posts: Post[]): { bestHours: number[], bestDays: string[] } {
     if (posts.length === 0) {
       return { bestHours: [9, 12, 18], bestDays: ['Monday', 'Wednesday', 'Friday'] };
     }
 
-    const postHours = posts.map(post => {
-      const date = new Date(post.createdAt);
-      return date.getHours();
-    });
+    const engagementHours = posts.map(post => {
+      const postHour = new Date(post.createdAt).getHours();
+      // Weight by engagement (likes count) - posts with more likes contribute more to timing analysis
+      const engagementWeight = (post.likes?.length || 0) + 1;
+      return Array(engagementWeight).fill(postHour); // Repeat hour based on engagement level
+    }).flat();
 
-    const hourCounts = postHours.reduce((acc, hour) => {
+    const hourCounts = engagementHours.reduce((acc, hour) => {
       acc[hour] = (acc[hour] || 0) + 1;
       return acc;
     }, {} as Record<number, number>);
 
     const bestHours = Object.entries(hourCounts)
-      .sort((a, b) => (b[1] as number) - (a[1] as number)) // FIXED: Changed from ([,a], [,b]) => b - a
+      .sort((a, b) => (b[1] as number) - (a[1] as number))
       .slice(0, 3)
-      .map(([hour]) => parseInt(hour));
+      .map(([hour]) => parseInt(hour))
+      .sort((a, b) => a - b); // Sort chronologically for better reading
 
     return {
       bestHours: bestHours.length > 0 ? bestHours : [9, 12, 18],
@@ -74,7 +77,7 @@ class AIAnalyticsService {
 
     const topPerformingTags = Array.from(tagEngagement.entries())
       .filter(([, data]) => data.count >= 2)
-      .sort((a, b) => (b[1].totalLikes / b[1].count) - (a[1].totalLikes / a[1].count)) // FIXED: Changed from ([,a], [,b]) => (b.totalLikes / b.count) - (a.totalLikes / a.count)
+      .sort((a, b) => (b[1].totalLikes / b[1].count) - (a[1].totalLikes / a[1].count))
       .slice(0, 5)
       .map(([tag]) => tag);
 
@@ -128,13 +131,13 @@ class AIAnalyticsService {
   ): Promise<AITip[]> {
     const tips: AITip[] = [];
 
-    // 1. Timing optimization tips
+    // 1. Timing optimization tips (FIXED: Now based on engagement timing)
     const postingPattern = this.analyzePostingPattern(userPosts);
     if (postingPattern.bestHours.length > 0) {
       tips.push({
         id: 'optimal-timing',
-        title: '⏰ Optimal Posting Times',
-        message: `Your posts perform best around ${postingPattern.bestHours.map(h => `${h}:00`).join(', ')}. Try scheduling posts during these hours for maximum engagement.`,
+        title: '⏰ Best Engagement Times',
+        message: `Your posts get the most engagement around ${postingPattern.bestHours.map(h => `${h}:00`).join(', ')}. Try scheduling posts during these hours!`,
         type: 'timing',
         priority: 'medium',
         data: { bestHours: postingPattern.bestHours }
@@ -245,7 +248,7 @@ class AIAnalyticsService {
     });
 
     return Array.from(tagCounts.entries())
-      .sort((a, b) => (b[1] as number) - (a[1] as number)) // FIXED: Changed from (a, b) => (b[1] as number) - (a[1] as number) - was already correct but keeping for consistency
+      .sort((a, b) => (b[1] as number) - (a[1] as number))
       .slice(0, 10)
       .map(([tag]) => tag);
   }
