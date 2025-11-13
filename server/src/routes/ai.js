@@ -407,33 +407,19 @@ router.get('/suggestions/users/:userId', auth, async (req, res) => {
     
     let userInterests = [];
 
-    // PRIORITY 1: User's CURRENT preferences
+    // 🎯 CRITICAL FIX: ONLY use CURRENT user preferences, ignore AI preferences
     if (currentUserPreferences.length > 0) {
       userInterests = currentUserPreferences.slice(0, 5);
-      console.log('✅ Using CURRENT user preferences:', userInterests);
-    }
-    // PRIORITY 2: AI Preferences (tagAffinity)
-    else if (aiPreference && aiPreference.tagAffinity && aiPreference.tagAffinity.size > 0) {
-      userInterests = Array.from(aiPreference.tagAffinity.keys())
-        .sort((a, b) => aiPreference.tagAffinity.get(b).score - aiPreference.tagAffinity.get(a).score)
-        .slice(0, 5);
-      console.log('✅ Using AI tagAffinity:', userInterests);
-    }
-    // PRIORITY 3: AI interests array (legacy)
-    else if (aiPreference && aiPreference.interests && aiPreference.interests.length > 0) {
-      userInterests = aiPreference.interests;
-      console.log('✅ Using AI interests array:', userInterests);
-    }
-
-    console.log('🎯 Final user interests for suggestions:', userInterests);
-
-    if (!userInterests.length) {
-      console.log('ℹ️ No user interests found, returning empty suggestions');
+      console.log('✅ STRICTLY Using CURRENT user preferences:', userInterests);
+    } else {
+      console.log('ℹ️ No user preferences found, returning empty suggestions');
       return res.json({
         success: true,
         suggestedUsers: []
       });
     }
+
+    console.log('🎯 Final user interests for suggestions:', userInterests);
 
     console.log('🔍 Finding users with matching interests...');
     
