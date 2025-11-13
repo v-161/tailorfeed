@@ -1,10 +1,9 @@
 import React, { createContext, useContext, useState, ReactNode, useCallback, useRef, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { aiService } from '../services/aiService';
-import { User, Post } from '../types'; // IMPORT FROM TYPES
-import { useDataContext } from './DataContext'; // ADD THIS IMPORT
+import { User, Post } from '../types';
+import { useDataContext } from './DataContext';
 
-// Keep only SearchResult and other interfaces that aren't in your types file
 interface SearchResult {
   posts: Post[];
   users: User[];
@@ -23,6 +22,7 @@ interface SearchContextType {
   clearSearch: () => void;
   addToRecentSearches: (query: string) => void;
   fetchTrendingData: () => Promise<void>;
+  refreshSuggestions: () => Promise<void>; // ADD THIS
 }
 
 const SearchContext = createContext<SearchContextType | undefined>(undefined);
@@ -48,47 +48,43 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
   });
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [trendingTags, setTrendingTags] = useState<string[]>([]);
-  const [suggestedUsers, setSuggestedUsers] = useState<User[]>([]); // REMOVED FAKE USERS
+  const [suggestedUsers, setSuggestedUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
 
   const searchIdRef = useRef(0);
 
   const { currentUser } = useAuth();
-  const { userPreferences } = useDataContext(); // ADD THIS
+  const { userPreferences } = useDataContext();
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-  // 🎯 FIX: Auto-refresh suggested users when preferences change
-  useEffect(() => {
-    if (currentUser && userPreferences.length > 0) {
-      console.log('🔄 Preferences changed, refreshing suggested users...');
-      loadSuggestedUsers();
-      fetchTrendingData(); // Also refresh trending data
+  // 🎯 FIX 1: Memoized loadSuggestedUsers
+  const loadSuggestedUsers = useCallback(async () => {
+    if (!currentUser) {
+      setSuggestedUsers([]);
+      return;
     }
-  }, [userPreferences, currentUser]); // Add userPreferences dependency
-
-  // Load AI suggested users based on preferences
-  const loadSuggestedUsers = async () => {
-    if (!currentUser) return;
     
     try {
       console.log('🔄 Loading suggested users for preferences:', userPreferences);
       const suggestions = await aiService.getSuggestedUsers(currentUser._id);
+      
+      // 🎯 DEBUG: Check if travel_diaries is in the response
+      const hasTravelDiaries = suggestions.some(user => 
+        user.username?.toLowerCase().includes('travel')
+      );
+      console.log('🎯 AI Service returned travel_diaries:', hasTravelDiaries);
+      console.log('🎯 All suggested users:', suggestions.map(u => u.username));
+      
       setSuggestedUsers(suggestions);
       console.log('✅ Suggested users loaded:', suggestions.length);
     } catch (error) {
       console.error('Error loading suggested users:', error);
       setSuggestedUsers([]);
     }
-  };
+  }, [currentUser, userPreferences]); // Add dependencies
 
-  // Load trending data and recent searches on mount
-  useEffect(() => {
-    fetchTrendingData();
-    loadRecentSearches();
-    loadSuggestedUsers();
-  }, [currentUser]);
-
-  const fetchTrendingData = async () => {
+  // 🎯 FIX 2: Memoized fetchTrendingData
+  const fetchTrendingData = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/search/trending`, {
@@ -100,27 +96,67 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
       
       if (response.ok) {
         const data = await response.json();
-        setTrendingTags(data.tags?.map((t: any) => t.name) || []);
         
-        // 🎯 FIX: Use suggestedUsers from backend API
-        if (data.suggestedUsers && data.suggestedUsers.length > 0) {
-          setSuggestedUsers(data.suggestedUsers);
-          console.log('✅ Using backend suggested users:', data.suggestedUsers.length);
+        // 🎯 FIX: Remove 'travel' from trending tags
+        const filteredTags = (data.tags || [])
+          .map((t: any) => t.name)
+          .filter((tag: string) => tag !== 'travel'); // 🎯 FILTER OUT TRAVEL
+        
+        setTrendingTags(filteredTags);
+        
+        // 🎯 FIX: Filter suggestedUsers to remove travel-related users
+        const filteredSuggestedUsers = (data.suggestedUsers || [])
+          .filter((user: User) => !user.username?.toLowerCase().includes('travel'));
+        
+        if (filteredSuggestedUsers.length > 0) {
+          setSuggestedUsers(filteredSuggestedUsers);
+          console.log('✅ Using filtered backend suggested users:', filteredSuggestedUsers.length);
         } else {
-          // Fallback to AI service
           await loadSuggestedUsers();
         }
       } else {
-        // Fallback
-        setTrendingTags(['programming', 'react', 'travel', 'food', 'fitness', 'art', 'photography']);
-        await loadSuggestedUsers(); // Load from AI service as fallback
+        // 🎯 FIX: Remove 'travel' from fallback data
+        const fallbackTags = ['programming', 'food', 'fitness', 'art', 'photography']; // ✅ NO TRAVEL
+        setTrendingTags(fallbackTags);
+        await loadSuggestedUsers();
       }
     } catch (error) {
       console.error('Failed to fetch trending data:', error);
-      setTrendingTags(['programming', 'react', 'travel', 'food', 'fitness', 'art', 'photography']);
-      await loadSuggestedUsers(); // Load from AI service as fallback
+      // 🎯 FIX: Remove 'travel' from error fallback
+      const fallbackTags = ['programming', 'food', 'fitness', 'art', 'photography']; // ✅ NO TRAVEL
+      setTrendingTags(fallbackTags);
+      await loadSuggestedUsers();
     }
-  };
+  }, [API_URL, loadSuggestedUsers]);
+
+  // 🎯 FIX 3: Add refresh function
+  const refreshSuggestions = useCallback(async () => {
+    console.log('🔄 Manually refreshing suggestions...');
+    await fetchTrendingData();
+  }, [fetchTrendingData]);
+
+  // 🎯 FIX 4: Proper useEffect dependencies
+  useEffect(() => {
+    if (currentUser) {
+      fetchTrendingData();
+      loadRecentSearches();
+      loadSuggestedUsers();
+    }
+  }, [currentUser, fetchTrendingData, loadSuggestedUsers]); // Add dependencies
+
+  // 🎯 FIX 5: Auto-refresh when preferences change
+  useEffect(() => {
+    if (currentUser && userPreferences.length > 0) {
+      console.log('🔄 Preferences changed, refreshing suggested users...');
+      
+      // 🎯 DEBUG: Check current preferences
+      console.log('🎯 Current user preferences:', userPreferences);
+      console.log('🎯 Has travel preference:', userPreferences.includes('travel'));
+      
+      loadSuggestedUsers();
+      fetchTrendingData();
+    }
+  }, [userPreferences, currentUser, loadSuggestedUsers, fetchTrendingData]);
 
   const loadRecentSearches = () => {
     const saved = localStorage.getItem('recentSearches');
@@ -141,7 +177,6 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
     }
 
     const currentSearchId = ++searchIdRef.current;
-    
     setLoading(true);
 
     try {
@@ -187,7 +222,7 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
     if (query.trim()) {
       addToRecentSearches(query);
     }
-  }, [API_URL]);
+  }, [API_URL, trendingTags]);
 
   const performLocalSearch = (query: string) => {
     console.log('🔄 Using local search fallback for:', query);
@@ -197,7 +232,7 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
     
     setSearchResults({
       posts: [],
-      users: [], // No fake users
+      users: [],
       tags: matchingTags
     });
   };
@@ -232,7 +267,8 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
     performSearch,
     clearSearch,
     addToRecentSearches,
-    fetchTrendingData
+    fetchTrendingData,
+    refreshSuggestions // ADD THIS
   };
 
   return (
