@@ -125,8 +125,16 @@ router.put('/:id/like', auth, async (req, res) => {
     }
 
     if (action === 'like') {
-      if (!post.likes.includes(userId)) {
-        post.likes.push(userId);
+      // Check if user already liked
+      const alreadyLiked = post.likes.some(like => 
+        like.userId.toString() === userId
+      );
+      
+      if (!alreadyLiked) {
+        post.likes.push({
+          userId: userId,
+          likedAt: new Date()
+        });
         
         // CREATE NOTIFICATION FOR POST OWNER (only if not liking own post)
         if (post.userId._id.toString() !== userId) {
@@ -146,7 +154,9 @@ router.put('/:id/like', auth, async (req, res) => {
         }
       }
     } else if (action === 'unlike') {
-      post.likes = post.likes.filter(likeId => likeId.toString() !== userId);
+      post.likes = post.likes.filter(like => 
+        like.userId.toString() !== userId
+      );
     }
 
     await post.save();
