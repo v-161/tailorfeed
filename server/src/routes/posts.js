@@ -56,6 +56,55 @@ router.get('/', async (req, res) => {
   }
 });
 
+// @route   GET /api/posts/liked/:userId
+// @desc    Get posts liked by a user
+router.get('/liked/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    console.log('🔍 Fetching liked posts for user:', userId);
+
+    // Find all posts where the user has liked (using new like structure)
+    const likedPosts = await Post.find({
+      'likes.userId': userId
+    })
+      .populate('userId', 'username profilePic')
+      .sort({ createdAt: -1 });
+
+    console.log('✅ Found liked posts:', likedPosts.length);
+
+    res.json({
+      success: true,
+      posts: likedPosts.map(post => {
+        const userData = post.userId || {};
+        
+        return {
+          id: post._id,
+          userId: userData._id || post.userId,
+          username: userData.username || post.username || 'Unknown User',
+          profilePic: userData.profilePic || post.profilePic,
+          profilePicture: userData.profilePic || post.profilePic,
+          caption: post.caption || '',
+          imageUrl: post.imageUrl || '',
+          tags: post.tags || [],
+          likes: post.likes || [],
+          comments: post.comments || [],
+          commentsCount: post.comments?.length || 0,
+          likesCount: post.likes?.length || 0,
+          createdAt: post.createdAt
+        };
+      })
+    });
+
+  } catch (error) {
+    console.error('Get liked posts error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching liked posts'
+    });
+  }
+});
+
 // @route   POST /api/posts
 // @desc    Create a post
 router.post('/', auth, async (req, res) => {
@@ -124,25 +173,29 @@ router.put('/:id/like', auth, async (req, res) => {
       });
     }
 
-    // ✅ FIX: First, migrate any old like structures to new structure
+    // ✅ FIX: Only migrate if we have old structure likes AND we're not in the middle of a like operation
+    let needsMigration = false;
     const migratedLikes = post.likes.map(like => {
-      if (like && typeof like === 'object' && like.userId) {
-        // Already new structure: { userId: ObjectId, likedAt: Date }
+      if (like && typeof like === 'object' && like.userId && like.likedAt) {
+        // Already new structure with proper timestamp: { userId: ObjectId, likedAt: Date }
         return like;
       } else if (like && like.toString) {
         // Old structure: just userId as string/ObjectId
-        // Convert to new structure
+        needsMigration = true;
+        // Convert to new structure but use post creation time as fallback
+        // We can't know the exact like time for old likes, so we use post creation time
         return {
           userId: like,
-          likedAt: new Date() // Use current date as default
+          likedAt: post.createdAt // Use post creation time as fallback for old likes
         };
       }
-      // If invalid like, filter it out
       return null;
     }).filter(like => like !== null);
 
-    // Update post with migrated likes
-    post.likes = migratedLikes;
+    // Only update if migration is needed
+    if (needsMigration) {
+      post.likes = migratedLikes;
+    }
 
     if (action === 'like') {
       // Check if user already liked
@@ -151,10 +204,10 @@ router.put('/:id/like', auth, async (req, res) => {
       );
       
       if (!alreadyLiked) {
-        // Add new like with proper structure
+        // ✅ FIX: Add new like with CURRENT timestamp (when the like actually happened)
         post.likes.push({
           userId: userId,
-          likedAt: new Date()
+          likedAt: new Date() // This is the actual time the user clicked like
         });
         
         // CREATE NOTIFICATION FOR POST OWNER (only if not liking own post)
