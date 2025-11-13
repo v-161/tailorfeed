@@ -208,7 +208,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     });
     
     const topTags = Object.entries(tagFrequency)
-      .sort(([, a], [, b]) => b - a)
+      .sort((a, b) => (b[1] as number) - (a[1] as number))
       .slice(0, 3)
       .map(([tag]) => tag);
 
