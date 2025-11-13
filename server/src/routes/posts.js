@@ -125,12 +125,19 @@ router.put('/:id/like', auth, async (req, res) => {
     }
 
     if (action === 'like') {
-      // Check if user already liked
-      const alreadyLiked = post.likes.some(like => 
-        like.userId.toString() === userId
-      );
+      // ✅ FIX: Handle both old and new like structures
+      const alreadyLiked = post.likes.some(like => {
+        if (like && like.userId) {
+          // New structure: like is an object with userId
+          return like.userId.toString() === userId;
+        } else {
+          // Old structure: like is just the userId
+          return like.toString() === userId;
+        }
+      });
       
       if (!alreadyLiked) {
+        // ✅ Always use new structure when adding likes
         post.likes.push({
           userId: userId,
           likedAt: new Date()
@@ -154,9 +161,16 @@ router.put('/:id/like', auth, async (req, res) => {
         }
       }
     } else if (action === 'unlike') {
-      post.likes = post.likes.filter(like => 
-        like.userId.toString() !== userId
-      );
+      // ✅ FIX: Handle both old and new like structures
+      post.likes = post.likes.filter(like => {
+        if (like && like.userId) {
+          // New structure: like is an object with userId
+          return like.userId.toString() !== userId;
+        } else {
+          // Old structure: like is just the userId
+          return like.toString() !== userId;
+        }
+      });
     }
 
     await post.save();
