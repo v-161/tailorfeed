@@ -61,7 +61,7 @@ export class RecommendationEngine {
     // Return tags that are popular but not in user preferences yet
     return Object.entries(tagFrequency)
       .filter(([tag]) => !userPreferences.includes(tag))
-      .sort(([, a], [, b]) => b - a)
+      .sort((a, b) => (b[1] as number) - (a[1] as number)) // FIXED: Changed from ([, a], [, b]) => b - a
       .slice(0, 5)
       .map(([tag]) => tag);
   }
@@ -127,7 +127,7 @@ export class RecommendationEngine {
     });
 
     const favoriteTags = Object.entries(tagFrequency)
-      .sort(([, a], [, b]) => b - a)
+      .sort((a, b) => (b[1] as number) - (a[1] as number)) // FIXED: Changed from ([, a], [, b]) => b - a
       .slice(0, 5)
       .map(([tag]) => tag);
 
@@ -164,4 +164,4 @@ export class RecommendationEngine {
 
     return tips.slice(0, 3); // Return top 3 tips
   }
-} 
+}
