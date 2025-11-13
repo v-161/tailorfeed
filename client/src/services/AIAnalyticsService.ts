@@ -34,23 +34,34 @@ class AIAnalyticsService {
   
   // Replace the analyzePostingPattern function:
   analyzePostingPattern(posts: Post[]): { bestHours: number[], bestDays: string[] } {
-    if (posts.length === 0) {
-      return { bestHours: [9, 12, 18], bestDays: ['Monday', 'Wednesday', 'Friday'] };
+    // 🎯 FIX: Return default hours until backend tracks engagement timestamps
+    const userHasEngagement = posts.some(post => 
+      (post.likes?.length || 0) > 0 || (post.comments?.length || 0) > 0
+    );
+
+    if (!userHasEngagement) {
+      // Default suggestion for new users
+      return { 
+        bestHours: [10, 15, 19], // 10 AM, 3 PM, 7 PM - general good times
+        bestDays: ['Monday', 'Wednesday', 'Friday'] 
+      };
     }
 
-    // 🎯 FIX: Analyze engagement timing instead of posting timing
-    // Posts with more likes represent better engagement timing
-    const engagementHours = posts.flatMap(post => {
+    // 🎯 TEMPORARY FIX: Use a smarter approach until backend has like timestamps
+    // For now, we'll use a combination of posting time and engagement weight
+    const weightedHours: number[] = [];
+
+    posts.forEach(post => {
       const postHour = new Date(post.createdAt).getHours();
+      const engagementWeight = Math.min((post.likes?.length || 0) + (post.comments?.length || 0) + 1, 5);
       
-      // Weight by engagement level - posts with more likes represent better timing
-      const engagementWeight = Math.min((post.likes?.length || 0) + 1, 10);
-      
-      // Return the hour repeated based on engagement level
-      return Array(engagementWeight).fill(postHour);
+      // Add the hour multiple times based on engagement
+      for (let i = 0; i < engagementWeight; i++) {
+        weightedHours.push(postHour);
+      }
     });
 
-    const hourCounts = engagementHours.reduce((acc, hour) => {
+    const hourCounts = weightedHours.reduce((acc, hour) => {
       acc[hour] = (acc[hour] || 0) + 1;
       return acc;
     }, {} as Record<number, number>);
@@ -62,7 +73,7 @@ class AIAnalyticsService {
       .sort((a, b) => a - b);
 
     return {
-      bestHours: bestHours.length > 0 ? bestHours : [9, 12, 18],
+      bestHours: bestHours.length > 0 ? bestHours : [10, 15, 19],
       bestDays: ['Monday', 'Wednesday', 'Friday']
     };
   }
@@ -136,17 +147,36 @@ class AIAnalyticsService {
   ): Promise<AITip[]> {
     const tips: AITip[] = [];
 
-    // 1. Timing optimization tips (FIXED: Now based on engagement timing)
+    // Check if user has any engagement
+    const hasEngagement = userPosts.some(post => 
+      (post.likes?.length || 0) > 0 || (post.comments?.length || 0) > 0
+    );
+
+    // 1. Timing optimization tips - IMPROVED LOGIC
     const postingPattern = this.analyzePostingPattern(userPosts);
+    
     if (postingPattern.bestHours.length > 0) {
-      tips.push({
-        id: 'optimal-timing',
-        title: '⏰ Best Engagement Times',
-        message: `Your posts get the most engagement around ${postingPattern.bestHours.map(h => `${h}:00`).join(', ')}. Try scheduling posts during these hours!`,
-        type: 'timing',
-        priority: 'medium',
-        data: { bestHours: postingPattern.bestHours }
-      });
+      if (!hasEngagement) {
+        // Default tip for new users
+        tips.push({
+          id: 'optimal-timing-default',
+          title: '⏰ Suggested Posting Times',
+          message: 'Based on general user patterns, try posting around 10 AM, 3 PM, or 7 PM for better visibility. Start posting to get personalized timing recommendations!',
+          type: 'timing',
+          priority: 'medium',
+          data: { bestHours: postingPattern.bestHours }
+        });
+      } else {
+        // Personalized tip for users with engagement
+        tips.push({
+          id: 'optimal-timing-personalized',
+          title: '⏰ Your Best Engagement Times',
+          message: `Your content performs best around ${postingPattern.bestHours.map(h => `${h}:00`).join(', ')}. Consider scheduling posts during these hours!`,
+          type: 'timing',
+          priority: 'medium',
+          data: { bestHours: postingPattern.bestHours }
+        });
+      }
     }
 
     // 2. Tag performance tips
