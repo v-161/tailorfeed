@@ -27,16 +27,10 @@ const postSchema = new mongoose.Schema({
     type: String,
     lowercase: true
   }],
+  // ✅ REVERT: Back to old like structure
   likes: [{
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
-    },
-    likedAt: {
-      type: Date,
-      default: Date.now
-    }
+    type: mongoose.Schema.Types.ObjectId, // Just user IDs
+    ref: 'User'
   }],
   comments: [{
     userId: {
