@@ -49,7 +49,7 @@ class AIAnalyticsService {
     }, {} as Record<number, number>);
 
     const bestHours = Object.entries(hourCounts)
-      .sort(([,a], [,b]) => b - a)
+      .sort((a, b) => (b[1] as number) - (a[1] as number)) // FIXED: Changed from ([,a], [,b]) => b - a
       .slice(0, 3)
       .map(([hour]) => parseInt(hour));
 
@@ -74,7 +74,7 @@ class AIAnalyticsService {
 
     const topPerformingTags = Array.from(tagEngagement.entries())
       .filter(([, data]) => data.count >= 2)
-      .sort(([,a], [,b]) => (b.totalLikes / b.count) - (a.totalLikes / a.count))
+      .sort((a, b) => (b[1].totalLikes / b[1].count) - (a[1].totalLikes / a[1].count)) // FIXED: Changed from ([,a], [,b]) => (b.totalLikes / b.count) - (a.totalLikes / a.count)
       .slice(0, 5)
       .map(([tag]) => tag);
 
@@ -245,7 +245,7 @@ class AIAnalyticsService {
     });
 
     return Array.from(tagCounts.entries())
-      .sort(([,a], [,b]) => b - a)
+      .sort((a, b) => (b[1] as number) - (a[1] as number)) // FIXED: Changed from (a, b) => (b[1] as number) - (a[1] as number) - was already correct but keeping for consistency
       .slice(0, 10)
       .map(([tag]) => tag);
   }
