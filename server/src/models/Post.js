@@ -1,3 +1,33 @@
+javascript
+likes: [{
+  type: mongoose.Schema.Types.ObjectId, // Only stores user IDs
+  ref: 'User'
+}],
+comments: [{
+  userId: mongoose.Schema.Types.ObjectId,
+  username: String,
+  text: String,
+  createdAt: Date // ✅ Comments have timestamps
+}],
+Missing: Like timestamps! You can't analyze engagement timing without knowing when likes occurred.
+
+Fix Needed:
+1. Update Post Model to Track Like Timestamps
+javascript
+// server/src/models/Post.js - UPDATE LIKES SCHEMA
+likes: [{
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  likedAt: {
+    type: Date,
+    default: Date.now
+  }
+}],
+
+here code:
 // server/src/models/Post.js
 import mongoose from 'mongoose';
 
@@ -27,9 +57,8 @@ const postSchema = new mongoose.Schema({
     type: String,
     lowercase: true
   }],
-  // ✅ REVERT: Back to old like structure
   likes: [{
-    type: mongoose.Schema.Types.ObjectId, // Just user IDs
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
   comments: [{
