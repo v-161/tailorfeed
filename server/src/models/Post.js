@@ -28,8 +28,15 @@ const postSchema = new mongoose.Schema({
     lowercase: true
   }],
   likes: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    likedAt: {
+      type: Date,
+      default: Date.now
+    }
   }],
   comments: [{
     userId: {
