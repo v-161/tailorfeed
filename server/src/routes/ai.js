@@ -14,14 +14,18 @@ router.post('/interaction', auth, async (req, res) => {
     const { postId, interactionType, postTags } = req.body;
     const userId = req.user._id;
 
+    console.log('🎯 AI Interaction:', { interactionType, postTags });
+
     let aiPreference = await AIPreference.findOne({ userId });
     if (!aiPreference) {
       aiPreference = new AIPreference({ userId });
     }
 
-    // 🎯 FIX: Get current user preferences to check what should be kept
+    // 🎯 CRITICAL FIX: Get user FIRST and update preferences directly
     const user = await User.findById(userId);
-    const currentUserPreferences = user?.preferences?.interests || [];
+    if (!user.preferences) {
+      user.preferences = { interests: [] };
+    }
 
     if (postTags && Array.isArray(postTags)) {
       const weightMap = {
@@ -29,12 +33,15 @@ router.post('/interaction', auth, async (req, res) => {
         'comment': 3,
         'share': 4,
         'view': 0.5,
-        'unlike': -3 // 🎯 STRONGER penalty for unlike
+        'unlike': -3
       };
 
       const weight = weightMap[interactionType] || 1;
 
+      // 🎯 SIMPLIFIED LOGIC: Handle AI preferences
       postTags.forEach(tag => {
+        if (!tag || tag.trim() === '') return;
+
         const currentAffinity = aiPreference.tagAffinity.get(tag) || {
           score: 0,
           interactionCount: 0,
@@ -46,56 +53,43 @@ router.post('/interaction', auth, async (req, res) => {
         currentAffinity.interactionCount += Math.abs(weight);
         currentAffinity.lastInteracted = new Date();
         
-        // 🎯 FIX: Only keep the tag if it's in user preferences OR has positive engagement
-        if (currentUserPreferences.includes(tag) || currentAffinity.score > 0) {
-          aiPreference.tagAffinity.set(tag, currentAffinity);
-        } else {
-          // Remove tag if not in preferences and score is low/negative
-          aiPreference.tagAffinity.delete(tag);
-        }
+        aiPreference.tagAffinity.set(tag, currentAffinity);
       });
 
-      // 🎯 FIX: Handle unlike specifically - remove from user preferences too
-      if (interactionType === 'unlike') {
-        const user = await User.findById(userId);
-        if (user && user.preferences) {
-          // Remove the unliked post's tags from user preferences
-          postTags.forEach(tag => {
-            if (user.preferences.interests.includes(tag)) {
-              user.preferences.interests = user.preferences.interests.filter(t => t !== tag);
-              console.log('🗑️ Removed tag from user preferences due to unlike:', tag);
-            }
-          });
-          await user.save();
-        }
-        
-        // Also clean up AI preferences
+      // 🎯 CRITICAL FIX: SIMPLIFIED USER PREFERENCES UPDATE
+      if (interactionType === 'like') {
+        // ADD TAGS TO USER PREFERENCES WHEN LIKING
+        postTags.forEach(tag => {
+          if (tag && !user.preferences.interests.includes(tag)) {
+            user.preferences.interests.push(tag);
+            console.log('✅ ADDED tag to user preferences from like:', tag);
+          }
+        });
+      } 
+      else if (interactionType === 'unlike') {
+        // REMOVE TAGS FROM USER PREFERENCES WHEN UNLIKING
+        postTags.forEach(tag => {
+          if (tag && user.preferences.interests.includes(tag)) {
+            user.preferences.interests = user.preferences.interests.filter(t => t !== tag);
+            console.log('🗑️ REMOVED tag from user preferences from unlike:', tag);
+          }
+        });
+
+        // Also remove from AI preferences if score is too low
         for (let [tag, affinity] of aiPreference.tagAffinity) {
-          if (affinity.score <= -2) { // 🎯 Remove if strongly disliked
+          if (affinity.score <= -5) {
             aiPreference.tagAffinity.delete(tag);
             console.log('🗑️ Removed tag from AI preferences due to low score:', tag);
           }
         }
       }
 
-      // ALSO UPDATE USER'S MAIN PREFERENCES FOR POSITIVE ENGAGEMENT
-      if (interactionType === 'like' || interactionType === 'comment') {
-        const user = await User.findById(userId);
-        if (user && !user.preferences) {
-          user.preferences = { interests: [] };
-        }
-        
-        postTags.forEach(tag => {
-          if (user.preferences && !user.preferences.interests.includes(tag)) {
-            user.preferences.interests.push(tag);
-            console.log('✅ Added tag to user preferences from interaction:', tag);
-          }
-        });
-        
-        await user.save();
-      }
+      // 🎯 FIX: SAVE USER PREFERENCES
+      await user.save();
+      console.log('💾 Saved user preferences:', user.preferences.interests);
     }
 
+    // Handle recommendation history
     if (postId) {
       aiPreference.recommendationHistory.push({
         postId,
@@ -113,7 +107,8 @@ router.post('/interaction', auth, async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Interaction recorded successfully'
+      message: 'Interaction recorded successfully',
+      userPreferences: user.preferences.interests // Return updated preferences for debugging
     });
 
   } catch (error) {
