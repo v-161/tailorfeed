@@ -82,7 +82,7 @@ const AIChatBot: React.FC<AIChatBotProps> = ({
     }, {} as Record<string, number>);
 
     const topTags = Object.entries(tagCounts)
-      .sort(([,a], [,b]) => b - a)
+      .sort((a, b) => (b[1] as number) - (a[1] as number))
       .slice(0, 5)
       .map(([tag]) => tag);
 
@@ -166,7 +166,7 @@ const AIChatBot: React.FC<AIChatBotProps> = ({
         }, {} as Record<string, number>);
         
         const trendingTags = Object.entries(tagFrequency)
-          .sort(([,a], [,b]) => b - a)
+          .sort((a, b) => (b[1] as number) - (a[1] as number))
           .slice(0, 10)
           .map(([tag]) => tag)
           .filter(tag => !analysis.topTags.includes(tag))
