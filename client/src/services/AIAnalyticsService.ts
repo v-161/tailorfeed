@@ -1,22 +1,16 @@
 import { aiService } from './aiService';
 
-// 🎯 FIX: Update Post interface to match backend structure
+// ✅ REVERT: Back to old like structure
 export interface Post {
   _id: string;
   userId: string;
   username: string;
   caption: string;
   tags: string[];
-  likes: Like[]; // 🎯 CHANGED: Array of Like objects, not strings
+  likes: string[]; // ✅ OLD STRUCTURE: Array of user IDs
   comments: any[];
   createdAt: string | Date;
   imageUrl?: string;
-}
-
-// 🎯 ADD: New Like interface for the timestamp structure
-export interface Like {
-  userId: string;
-  likedAt: string | Date;
 }
 
 export interface UserStats {
@@ -39,44 +33,21 @@ export interface AITip {
 
 class AIAnalyticsService {
   
-  // 🎯 FIX: Updated to use actual like timestamps
+  // ✅ REVERT: Back to simple posting pattern analysis
   analyzePostingPattern(posts: Post[]): { bestHours: number[], bestDays: string[] } {
-    const engagementHours: number[] = [];
-
-    posts.forEach(post => {
-      // Use like timestamps if available (new structure)
-      if (post.likes && Array.isArray(post.likes)) {
-        post.likes.forEach(like => {
-          if (like && like.likedAt) {
-            // 🎯 FIX: Use actual like timestamp
-            const hour = new Date(like.likedAt).getHours();
-            engagementHours.push(hour);
-          } else if (like && like.userId) {
-            // New structure but no timestamp, use post time as fallback
-            const hour = new Date(post.createdAt).getHours();
-            engagementHours.push(hour);
-          }
-        });
-      }
-
-      // Also include comment timestamps
-      if (post.comments && Array.isArray(post.comments)) {
-        post.comments.forEach(comment => {
-          if (comment.createdAt) {
-            const hour = new Date(comment.createdAt).getHours();
-            engagementHours.push(hour);
-          }
-        });
-      }
-    });
-
-    // If no engagement data, return defaults
-    if (engagementHours.length === 0) {
-      return { 
-        bestHours: [10, 15, 19],
-        bestDays: ['Monday', 'Wednesday', 'Friday'] 
-      };
+    if (posts.length === 0) {
+      return { bestHours: [9, 12, 18], bestDays: ['Monday', 'Wednesday', 'Friday'] };
     }
+
+    // Simple analysis based on post creation time and engagement
+    const engagementHours = posts.flatMap(post => {
+      const postHour = new Date(post.createdAt).getHours();
+      
+      // Weight by engagement level
+      const engagementWeight = Math.min((post.likes?.length || 0) + 1, 10);
+      
+      return Array(engagementWeight).fill(postHour);
+    });
 
     const hourCounts = engagementHours.reduce((acc, hour) => {
       acc[hour] = (acc[hour] || 0) + 1;
@@ -90,7 +61,7 @@ class AIAnalyticsService {
       .sort((a, b) => a - b);
 
     return {
-      bestHours: bestHours.length > 0 ? bestHours : [10, 15, 19],
+      bestHours: bestHours.length > 0 ? bestHours : [9, 12, 18],
       bestDays: ['Monday', 'Wednesday', 'Friday']
     };
   }
@@ -103,7 +74,6 @@ class AIAnalyticsService {
       post.tags?.forEach(tag => {
         const current = tagEngagement.get(tag) || { count: 0, totalLikes: 0 };
         current.count += 1;
-        // 🎯 FIX: post.likes is now an array of objects, so we use length
         current.totalLikes += post.likes?.length || 0;
         tagEngagement.set(tag, current);
       });
@@ -132,7 +102,6 @@ class AIAnalyticsService {
       return { engagementRate: 0, avgLikes: 0, trend: 'stable' };
     }
 
-    // 🎯 FIX: post.likes is now an array of objects, so we use length
     const userAvgLikes = userPosts.reduce((sum, post) => sum + (post.likes?.length || 0), 0) / userPosts.length;
     const platformAvgLikes = allPosts.reduce((sum, post) => sum + (post.likes?.length || 0), 0) / Math.max(allPosts.length, 1);
     
@@ -157,7 +126,7 @@ class AIAnalyticsService {
     };
   }
 
-  // Generate personalized AI tips - COMPLETE VERSION
+  // Generate personalized AI tips
   async generateAITips(
     userPosts: Post[], 
     allPosts: Post[], 
@@ -166,36 +135,17 @@ class AIAnalyticsService {
   ): Promise<AITip[]> {
     const tips: AITip[] = [];
 
-    // Check if user has any engagement
-    const hasEngagement = userPosts.some(post => 
-      (post.likes?.length || 0) > 0 || (post.comments?.length || 0) > 0
-    );
-
-    // 1. Timing optimization tips - NOW USING ACTUAL LIKE TIMESTAMPS
+    // 1. Timing optimization tips
     const postingPattern = this.analyzePostingPattern(userPosts);
-    
     if (postingPattern.bestHours.length > 0) {
-      if (!hasEngagement) {
-        // Default tip for new users
-        tips.push({
-          id: 'optimal-timing-default',
-          title: '⏰ Suggested Posting Times',
-          message: 'Based on general user patterns, try posting around 10 AM, 3 PM, or 7 PM for better visibility. Start posting to get personalized timing recommendations!',
-          type: 'timing',
-          priority: 'medium',
-          data: { bestHours: postingPattern.bestHours }
-        });
-      } else {
-        // Personalized tip for users with engagement
-        tips.push({
-          id: 'optimal-timing-personalized',
-          title: '⏰ Your Best Engagement Times',
-          message: `Your content performs best around ${postingPattern.bestHours.map(h => `${h}:00`).join(', ')}. Consider scheduling posts during these hours!`,
-          type: 'timing',
-          priority: 'medium',
-          data: { bestHours: postingPattern.bestHours }
-        });
-      }
+      tips.push({
+        id: 'optimal-timing',
+        title: '⏰ Best Engagement Times',
+        message: `Your posts get the most engagement around ${postingPattern.bestHours.map(h => `${h}:00`).join(', ')}. Try scheduling posts during these hours!`,
+        type: 'timing',
+        priority: 'medium',
+        data: { bestHours: postingPattern.bestHours }
+      });
     }
 
     // 2. Tag performance tips
