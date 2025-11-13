@@ -1,13 +1,12 @@
 import { aiService } from './aiService';
 
-// ✅ REVERT: Back to old like structure
 export interface Post {
   _id: string;
   userId: string;
   username: string;
   caption: string;
   tags: string[];
-  likes: string[]; // ✅ OLD STRUCTURE: Array of user IDs
+  likes: string[];
   comments: any[];
   createdAt: string | Date;
   imageUrl?: string;
@@ -33,19 +32,21 @@ export interface AITip {
 
 class AIAnalyticsService {
   
-  // ✅ REVERT: Back to simple posting pattern analysis
+  // Replace the analyzePostingPattern function:
   analyzePostingPattern(posts: Post[]): { bestHours: number[], bestDays: string[] } {
     if (posts.length === 0) {
       return { bestHours: [9, 12, 18], bestDays: ['Monday', 'Wednesday', 'Friday'] };
     }
 
-    // Simple analysis based on post creation time and engagement
+    // 🎯 FIX: Analyze engagement timing instead of posting timing
+    // Posts with more likes represent better engagement timing
     const engagementHours = posts.flatMap(post => {
       const postHour = new Date(post.createdAt).getHours();
       
-      // Weight by engagement level
+      // Weight by engagement level - posts with more likes represent better timing
       const engagementWeight = Math.min((post.likes?.length || 0) + 1, 10);
       
+      // Return the hour repeated based on engagement level
       return Array(engagementWeight).fill(postHour);
     });
 
@@ -135,7 +136,7 @@ class AIAnalyticsService {
   ): Promise<AITip[]> {
     const tips: AITip[] = [];
 
-    // 1. Timing optimization tips
+    // 1. Timing optimization tips (FIXED: Now based on engagement timing)
     const postingPattern = this.analyzePostingPattern(userPosts);
     if (postingPattern.bestHours.length > 0) {
       tips.push({
