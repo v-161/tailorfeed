@@ -125,6 +125,21 @@ const MrTailorDashboard: React.FC = () => {
     }
   }, [userPreferences]);
 
+  // 🎯 FIX 10: ADDED SYNCHRONIZATION USEFFECT - Sync AI interests with current user preferences
+  useEffect(() => {
+    // Sync AI interests with current user preferences
+    if (userInterests.length > 0 && userPreferences.length > 0) {
+      const filteredInterests = userInterests.filter(interest => 
+        userPreferences.includes(interest.tag)
+      );
+      
+      if (filteredInterests.length !== userInterests.length) {
+        console.log('🔄 Syncing AI interests with current preferences');
+        setUserInterests(filteredInterests);
+      }
+    }
+  }, [userPreferences, userInterests]);
+
   const loadAIData = async () => {
     if (!currentUser) {
       console.log('❌ No current user');
@@ -290,27 +305,30 @@ const MrTailorDashboard: React.FC = () => {
   const aiConfidence = calculateAIConfidence();
 
   // 🎯 FIX 8: Get display interests - always use userPreferences as source of truth
-  const displayInterests: DisplayInterest[] = userPreferences.length > 0 
-    ? userPreferences.map(pref => {
-        // Find matching AI interest data if available
-        const aiInterest = userInterests.find(interest => interest.tag === pref);
-        return {
-          tag: pref,
-          score: aiInterest?.score || 1,
-          displayScore: aiInterest?.tagAffinity ? Math.round(aiInterest.tagAffinity * 10) : (aiInterest?.score || 1),
-          interactionCount: aiInterest?.interactionCount || 1,
-          category: aiInterest?.category || 'user',
-          tagAffinity: aiInterest?.tagAffinity
-        };
-      })
-    : userInterests.map(interest => ({
-        tag: interest.tag,
-        score: interest.score,
-        displayScore: interest.tagAffinity ? Math.round(interest.tagAffinity * 10) : interest.score,
-        interactionCount: interest.interactionCount,
-        category: interest.category,
-        tagAffinity: interest.tagAffinity
-      }));
+  // 🎯 FIX 11: UPDATED DISPLAY INTERESTS WITH FILTER
+  const displayInterests: DisplayInterest[] = (
+    userPreferences.length > 0 
+      ? userPreferences.map(pref => {
+          // Find matching AI interest data if available
+          const aiInterest = userInterests.find(interest => interest.tag === pref);
+          return {
+            tag: pref,
+            score: aiInterest?.score || 1,
+            displayScore: aiInterest?.tagAffinity ? Math.round(aiInterest.tagAffinity * 10) : (aiInterest?.score || 1),
+            interactionCount: aiInterest?.interactionCount || 1,
+            category: aiInterest?.category || 'user',
+            tagAffinity: aiInterest?.tagAffinity
+          };
+        })
+      : userInterests.map(interest => ({
+          tag: interest.tag,
+          score: interest.score,
+          displayScore: interest.tagAffinity ? Math.round(interest.tagAffinity * 10) : interest.score,
+          interactionCount: interest.interactionCount,
+          category: interest.category,
+          tagAffinity: interest.tagAffinity
+        }))
+  ).filter(interest => userPreferences.includes(interest.tag)); // ADDED THIS FILTER
 
   // 🎯 FIXED: Function to remove user preference with proper state sync
   const handleRemovePreference = async (tag: string) => {
