@@ -56,8 +56,57 @@ router.get('/', async (req, res) => {
   }
 });
 
+// @route   GET /api/posts/liked
+// @desc    Get posts liked by current authenticated user
+router.get('/liked', auth, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    
+    console.log('🔍 Fetching liked posts for authenticated user:', userId);
+
+    // Find all posts where the user has liked (using new like structure)
+    const likedPosts = await Post.find({
+      'likes.userId': userId
+    })
+      .populate('userId', 'username profilePic')
+      .sort({ createdAt: -1 });
+
+    console.log('✅ Found liked posts:', likedPosts.length);
+
+    res.json({
+      success: true,
+      posts: likedPosts.map(post => {
+        const userData = post.userId || {};
+        
+        return {
+          id: post._id,
+          userId: userData._id || post.userId,
+          username: userData.username || post.username || 'Unknown User',
+          profilePic: userData.profilePic || post.profilePic,
+          profilePicture: userData.profilePic || post.profilePic,
+          caption: post.caption || '',
+          imageUrl: post.imageUrl || '',
+          tags: post.tags || [],
+          likes: post.likes || [],
+          comments: post.comments || [],
+          commentsCount: post.comments?.length || 0,
+          likesCount: post.likes?.length || 0,
+          createdAt: post.createdAt
+        };
+      })
+    });
+
+  } catch (error) {
+    console.error('Get liked posts error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching liked posts'
+    });
+  }
+});
+
 // @route   GET /api/posts/liked/:userId
-// @desc    Get posts liked by a user
+// @desc    Get posts liked by a specific user
 router.get('/liked/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
