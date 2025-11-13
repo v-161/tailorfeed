@@ -7,10 +7,70 @@ import Post from '../models/Post.js';
 const router = express.Router();
 
 // @route   GET /api/search/trending
-// @desc    Get trending tags and posts
+// @desc    Get trending tags and AI-suggested users based on preferences
 router.get('/trending', auth, async (req, res) => {
   try {
-    // Mock trending data for now
+    const userId = req.user._id;
+    
+    // Get user preferences to personalize suggestions
+    const user = await User.findById(userId);
+    const userPreferences = user?.preferences?.interests || [];
+    
+    console.log('🎯 Getting personalized suggestions for user:', userId);
+    console.log('🎯 User preferences:', userPreferences);
+
+    let suggestedUsers = [];
+
+    // 🎯 FIX: Get AI suggested users based on preferences
+    if (userPreferences.length > 0) {
+      // Find users who post content matching user preferences
+      const usersWithMatchingPosts = await User.aggregate([
+        { $match: { _id: { $ne: userId } } }, // Exclude current user
+        {
+          $lookup: {
+            from: 'posts',
+            localField: '_id',
+            foreignField: 'userId',
+            as: 'userPosts'
+          }
+        },
+        {
+          $match: {
+            'userPosts.tags': { $in: userPreferences }
+          }
+        },
+        {
+          $project: {
+            username: 1,
+            profilePic: 1,
+            bio: 1,
+            matchCount: {
+              $size: {
+                $filter: {
+                  input: '$userPosts.tags',
+                  as: 'tags',
+                  cond: { $in: ['$$tags', userPreferences] }
+                }
+              }
+            }
+          }
+        },
+        { $sort: { matchCount: -1 } },
+        { $limit: 10 }
+      ]);
+
+      suggestedUsers = usersWithMatchingPosts.map(user => ({
+        _id: user._id,
+        username: user.username,
+        profilePicture: user.profilePic,
+        bio: user.bio,
+        matchCount: user.matchCount
+      }));
+
+      console.log('✅ Found suggested users based on preferences:', suggestedUsers.length);
+    }
+
+    // Mock trending data (you can enhance this too)
     const mockTrending = {
       tags: [
         { name: 'photography', count: 142 },
@@ -19,14 +79,13 @@ router.get('/trending', auth, async (req, res) => {
         { name: 'art', count: 54 },
         { name: 'nature', count: 43 }
       ],
-      suggestions: [
-        'landscape', 'portrait', 'street', 'wildlife', 'macro'
-      ]
+      suggestions: userPreferences.slice(0, 5) // Show user's own preferences as suggestions
     };
 
     res.json({
       success: true,
-      ...mockTrending
+      ...mockTrending,
+      suggestedUsers // 🎯 RETURN AI-SUGGESTED USERS
     });
   } catch (error) {
     console.error('Get trending error:', error);
