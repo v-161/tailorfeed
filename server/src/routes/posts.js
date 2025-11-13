@@ -124,20 +124,34 @@ router.put('/:id/like', auth, async (req, res) => {
       });
     }
 
+    // ✅ FIX: First, migrate any old like structures to new structure
+    const migratedLikes = post.likes.map(like => {
+      if (like && typeof like === 'object' && like.userId) {
+        // Already new structure: { userId: ObjectId, likedAt: Date }
+        return like;
+      } else if (like && like.toString) {
+        // Old structure: just userId as string/ObjectId
+        // Convert to new structure
+        return {
+          userId: like,
+          likedAt: new Date() // Use current date as default
+        };
+      }
+      // If invalid like, filter it out
+      return null;
+    }).filter(like => like !== null);
+
+    // Update post with migrated likes
+    post.likes = migratedLikes;
+
     if (action === 'like') {
-      // ✅ FIX: Handle both old and new like structures
-      const alreadyLiked = post.likes.some(like => {
-        if (like && like.userId) {
-          // New structure: like is an object with userId
-          return like.userId.toString() === userId;
-        } else {
-          // Old structure: like is just the userId
-          return like.toString() === userId;
-        }
-      });
+      // Check if user already liked
+      const alreadyLiked = post.likes.some(like => 
+        like.userId.toString() === userId
+      );
       
       if (!alreadyLiked) {
-        // ✅ Always use new structure when adding likes
+        // Add new like with proper structure
         post.likes.push({
           userId: userId,
           likedAt: new Date()
@@ -161,16 +175,10 @@ router.put('/:id/like', auth, async (req, res) => {
         }
       }
     } else if (action === 'unlike') {
-      // ✅ FIX: Handle both old and new like structures
-      post.likes = post.likes.filter(like => {
-        if (like && like.userId) {
-          // New structure: like is an object with userId
-          return like.userId.toString() !== userId;
-        } else {
-          // Old structure: like is just the userId
-          return like.toString() !== userId;
-        }
-      });
+      // Remove like
+      post.likes = post.likes.filter(like => 
+        like.userId.toString() !== userId
+      );
     }
 
     await post.save();
