@@ -284,31 +284,31 @@ router.post('/survey', auth, async (req, res) => {
 router.get('/interests', auth, async (req, res) => {
   try {
     const userId = req.user._id;
+    
+    // 🎯 FIX: Get user's CURRENT preferences first
+    const user = await User.findById(userId);
+    const currentUserPreferences = user?.preferences?.interests || [];
+    
+    console.log('🎯 Current user preferences:', currentUserPreferences);
+
     const aiPreference = await AIPreference.findOne({ userId });
 
-    // FALLBACK: If no AI preferences, return user's main preferences
+    // If no AI preferences, return user's current preferences
     if (!aiPreference) {
-      const user = await User.findById(userId);
-      if (user && user.preferences && user.preferences.interests && user.preferences.interests.length > 0) {
-        return res.json({
-          success: true,
-          interests: user.preferences.interests.map(tag => ({
-            tag,
-            score: 5, // Default score
-            interactionCount: 1,
-            category: categorizeTag(tag),
-            source: 'user_preferences'
-          }))
-        });
-      }
-      
       return res.json({
         success: true,
-        interests: []
+        interests: currentUserPreferences.map(tag => ({
+          tag,
+          score: 5, // Default score
+          interactionCount: 1,
+          category: categorizeTag(tag),
+          source: 'user_preferences'
+        }))
       });
     }
 
-    const interests = Array.from(aiPreference.tagAffinity.entries())
+    // 🎯 FIX: Combine AI interests with user's CURRENT preferences
+    let interests = Array.from(aiPreference.tagAffinity.entries())
       .sort(([,a], [,b]) => b.score - a.score)
       .map(([tag, data]) => ({
         tag,
@@ -317,6 +317,26 @@ router.get('/interests', auth, async (req, res) => {
         category: data.category,
         source: 'ai_analysis'
       }));
+
+    // 🎯 FIX: Add any user preferences that aren't in AI interests
+    currentUserPreferences.forEach(tag => {
+      if (!interests.find(interest => interest.tag === tag)) {
+        interests.push({
+          tag,
+          score: 3, // Medium score for manual preferences
+          interactionCount: 1,
+          category: categorizeTag(tag),
+          source: 'manual_addition'
+        });
+      }
+    });
+
+    // 🎯 FIX: Remove any interests that user has manually removed
+    interests = interests.filter(interest => 
+      currentUserPreferences.includes(interest.tag) || interest.interactionCount > 1
+    );
+
+    console.log('🎯 Final combined interests:', interests.map(i => i.tag));
 
     res.json({
       success: true,
@@ -338,26 +358,28 @@ router.get('/suggestions/users/:userId', auth, async (req, res) => {
     const { userId } = req.params;
     console.log('🔄 Getting AI suggestions for user:', userId);
     
-    // Get current user's preferences - CHECK BOTH AI AND MAIN PREFERENCES
-    const aiPreference = await AIPreference.findOne({ userId });
+    // Get current user's preferences - CHECK USER'S CURRENT PREFERENCES FIRST
     const user = await User.findById(userId);
+    const currentUserPreferences = user?.preferences?.interests || [];
+    
+    const aiPreference = await AIPreference.findOne({ userId });
     
     console.log('🔍 AI Preference found:', !!aiPreference);
     console.log('🔍 User Preferences found:', !!(user && user.preferences && user.preferences.interests));
     
     let userInterests = [];
-    
-    // PRIORITY 1: AI Preferences (tagAffinity)
-    if (aiPreference && aiPreference.tagAffinity && aiPreference.tagAffinity.size > 0) {
+
+    // PRIORITY 1: User's CURRENT preferences
+    if (currentUserPreferences.length > 0) {
+      userInterests = currentUserPreferences.slice(0, 5);
+      console.log('✅ Using CURRENT user preferences:', userInterests);
+    }
+    // PRIORITY 2: AI Preferences (tagAffinity)
+    else if (aiPreference && aiPreference.tagAffinity && aiPreference.tagAffinity.size > 0) {
       userInterests = Array.from(aiPreference.tagAffinity.keys())
         .sort((a, b) => aiPreference.tagAffinity.get(b).score - aiPreference.tagAffinity.get(a).score)
         .slice(0, 5);
       console.log('✅ Using AI tagAffinity:', userInterests);
-    }
-    // PRIORITY 2: User's main preferences
-    else if (user && user.preferences && user.preferences.interests && user.preferences.interests.length > 0) {
-      userInterests = user.preferences.interests.slice(0, 5);
-      console.log('✅ Using user preferences:', userInterests);
     }
     // PRIORITY 3: AI interests array (legacy)
     else if (aiPreference && aiPreference.interests && aiPreference.interests.length > 0) {
