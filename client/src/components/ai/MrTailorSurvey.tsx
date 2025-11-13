@@ -49,7 +49,7 @@ const MrTailorSurvey: React.FC<MrTailorSurveyProps> = ({ open, onClose, onSubmit
     }));
   };
 
-  const handleComplete = async () => { // MADE ASYNC
+  const handleComplete = async () => {
     try {
       // Format responses for AI backend
       const formattedResponses = Object.entries(ratings).map(([tag, rating]) => ({
@@ -57,19 +57,30 @@ const MrTailorSurvey: React.FC<MrTailorSurveyProps> = ({ open, onClose, onSubmit
         answer: rating >= 3 ? `I'm interested in ${tag}` : `Not interested in ${tag}`
       }));
 
-      // 🎯 FIX: Actually call AI service to save survey
       console.log('🔄 Submitting survey to AI backend...');
+      
+      // 🎯 FIX: Better error handling and response checking
       const result = await aiService.submitSurvey(formattedResponses);
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to submit survey to server');
+      }
+      
       console.log('✅ Survey saved to AI backend:', result);
 
-      // Add tags with rating 3 or higher to user preferences
-      Object.entries(ratings).forEach(([tag, rating]) => {
-        if (rating >= 3 && !userPreferences.includes(tag)) {
-          addUserPreference(tag);
-        }
-      });
+      // 🎯 FIX: Add tags with rating 3 or higher to user preferences
+      const tagsToAdd = Object.entries(ratings)
+        .filter(([tag, rating]) => rating >= 3 && !userPreferences.includes(tag))
+        .map(([tag]) => tag);
 
-      // Call onSubmit prop if provided (for additional handling)
+      console.log('🔄 Adding preferences from survey:', tagsToAdd);
+      
+      // Add all preferences at once
+      for (const tag of tagsToAdd) {
+        await addUserPreference(tag);
+      }
+
+      // Call onSubmit prop if provided
       if (onSubmit) {
         onSubmit(formattedResponses);
       }
@@ -83,9 +94,9 @@ const MrTailorSurvey: React.FC<MrTailorSurveyProps> = ({ open, onClose, onSubmit
       
       // Show success message
       alert('🎉 Mr. Tailor has learned your preferences! Your feed will now be more personalized.');
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error submitting survey:', error);
-      alert('❌ Failed to save preferences. Please try again.');
+      alert(`❌ Failed to save preferences: ${error.message || 'Please check your connection and try again.'}`);
     }
   };
 
