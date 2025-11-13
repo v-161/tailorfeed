@@ -222,41 +222,23 @@ router.put('/:id/like', auth, async (req, res) => {
       });
     }
 
-    // ✅ FIX: Only migrate if we have old structure likes AND we're not in the middle of a like operation
-    let needsMigration = false;
-    const migratedLikes = post.likes.map(like => {
-      if (like && typeof like === 'object' && like.userId && like.likedAt) {
-        // Already new structure with proper timestamp: { userId: ObjectId, likedAt: Date }
-        return like;
-      } else if (like && like.toString) {
-        // Old structure: just userId as string/ObjectId
-        needsMigration = true;
-        // Convert to new structure but use post creation time as fallback
-        // We can't know the exact like time for old likes, so we use post creation time
-        return {
-          userId: like,
-          likedAt: post.createdAt // Use post creation time as fallback for old likes
-        };
-      }
-      return null;
-    }).filter(like => like !== null);
-
-    // Only update if migration is needed
-    if (needsMigration) {
-      post.likes = migratedLikes;
-    }
-
     if (action === 'like') {
-      // Check if user already liked
-      const alreadyLiked = post.likes.some(like => 
-        like.userId.toString() === userId
-      );
+      // ✅ COMPATIBILITY FIX: Check both old and new like structures
+      const alreadyLiked = post.likes.some(like => {
+        if (like && typeof like === 'object' && like.userId) {
+          // New structure: like is an object with userId
+          return like.userId.toString() === userId;
+        } else {
+          // Old structure: like is just the userId
+          return like.toString() === userId;
+        }
+      });
       
       if (!alreadyLiked) {
-        // ✅ FIX: Add new like with CURRENT timestamp (when the like actually happened)
+        // ✅ Always use new structure when adding likes
         post.likes.push({
           userId: userId,
-          likedAt: new Date() // This is the actual time the user clicked like
+          likedAt: new Date()
         });
         
         // CREATE NOTIFICATION FOR POST OWNER (only if not liking own post)
@@ -277,10 +259,16 @@ router.put('/:id/like', auth, async (req, res) => {
         }
       }
     } else if (action === 'unlike') {
-      // Remove like
-      post.likes = post.likes.filter(like => 
-        like.userId.toString() !== userId
-      );
+      // ✅ COMPATIBILITY FIX: Remove from both old and new structures
+      post.likes = post.likes.filter(like => {
+        if (like && typeof like === 'object' && like.userId) {
+          // New structure: like is an object with userId
+          return like.userId.toString() !== userId;
+        } else {
+          // Old structure: like is just the userId
+          return like.toString() !== userId;
+        }
+      });
     }
 
     await post.save();
@@ -400,7 +388,7 @@ router.get('/user/:userId', async (req, res) => {
         userId: post.userId,
         username: post.username,
         profilePic: post.profilePic,
-        profilePicture: post.profilePic, // Add both for compatibility
+        profilePicture: post.profilePic, 
         caption: post.caption,
         imageUrl: post.imageUrl,
         tags: post.tags,
