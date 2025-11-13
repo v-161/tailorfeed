@@ -25,6 +25,15 @@ const Post: React.FC<PostProps> = ({ post, onLike, onUserClick }) => {
   const profilePicture = post.profilePicture || post.profilePic || 'https://placehold.co/100x100/60A5FA/ffffff?text=U';
   const firstLetter = username[0]?.toUpperCase() || 'U';
 
+  // ✅ FIX: Check if userId exists before allowing click
+  const handleUserClick = () => {
+    if (post.userId) {
+      onUserClick(post.userId);
+    } else {
+      console.error('❌ Cannot navigate: post.userId is missing', post);
+    }
+  };
+
   return (
     <Box sx={{ p: 2, mb: 2, border: '1px solid #ccc', borderRadius: 2 }}>
       <Box 
@@ -32,9 +41,9 @@ const Post: React.FC<PostProps> = ({ post, onLike, onUserClick }) => {
           display: 'flex', 
           alignItems: 'center', 
           mb: 1,
-          cursor: 'pointer'
+          cursor: post.userId ? 'pointer' : 'default' // ✅ Only show pointer if userId exists
         }}
-        onClick={() => onUserClick(post.userId)}
+        onClick={handleUserClick}
       >
         <Avatar 
           src={profilePicture} 
@@ -45,6 +54,11 @@ const Post: React.FC<PostProps> = ({ post, onLike, onUserClick }) => {
         <Typography variant="subtitle2" fontWeight="bold">
           {username}
         </Typography>
+        {!post.userId && (
+          <Typography variant="caption" color="error" sx={{ ml: 1 }}>
+            (No profile)
+          </Typography>
+        )}
       </Box>
       <Typography variant="body2" sx={{ mb: 1 }}>
         {post.caption}
@@ -75,7 +89,7 @@ const SearchPage: React.FC = () => {
     clearSearch,
     addToRecentSearches,
     loading,
-    fetchTrendingData // Make sure this is in your SearchContext
+    fetchTrendingData
   } = useSearchContext();
 
   const { userPreferences } = useDataContext();
@@ -137,10 +151,10 @@ const SearchPage: React.FC = () => {
     console.log('Liked post:', postId);
   };
 
-  // FIXED: Use the correct route pattern that matches App.tsx
+  // ✅ FIXED: Use userId directly from the object
   const handleUserClick = (userId: string) => {
     console.log('🎯 Navigating to profile for user:', userId);
-    navigate(`/profile/${userId}`); // ✅ CORRECT: Matches App.tsx route
+    navigate(`/profile/${userId}`);
   };
 
   const hasResults = searchResults.posts.length > 0 || 
@@ -283,40 +297,28 @@ const SearchPage: React.FC = () => {
 
           {/* Results Content */}
           <Box sx={{ p: 2 }}>
+            {/* ✅ FIXED: Posts Results - Use userId directly from post */}
             {(activeTab === 'all' || activeTab === 'posts') && searchResults.posts.map((item: any) => {
-  const handlePostUserClick = () => {
-    console.log('🖱️ Clicked post:', {
-      postId: item._id,
-      username: item.username,
-      availableUsers: searchResults.users
-    });
+              const handlePostUserClick = () => {
+                // ✅ FIX: Use the userId directly from the post object
+                if (item.userId) {
+                  console.log('✅ Navigating to profile for user ID:', item.userId);
+                  navigate(`/profile/${item.userId}`);
+                } else {
+                  console.error('❌ No userId found in post:', item);
+                  console.log('🔍 Full post object:', item);
+                }
+              };
 
-    // Find the user in search results by username - use ANY type to avoid TypeScript errors
-    const userFromResults = searchResults.users.find((user: any) => 
-      user.username === item.username
-    );
-
-    if (userFromResults) {
-      // Use whatever ID field exists
-      const userId = (userFromResults as any).id || (userFromResults as any)._id;
-      console.log('✅ Found matching user:', userFromResults);
-      console.log('🎯 Navigating to profile for user ID:', userId);
-      navigate(`/profile/${userId}`);
-    } else {
-      console.error('❌ No matching user found for username:', item.username);
-      console.log('🔍 Available users:', searchResults.users);
-    }
-  };
-
-  return (
-    <Post 
-      key={item._id || item.id} 
-      post={item} 
-      onLike={() => handleLikePost(item._id || item.id)}
-      onUserClick={handlePostUserClick}
-    />
-  );
-})}
+              return (
+                <Post 
+                  key={item._id || item.id} 
+                  post={item} 
+                  onLike={() => handleLikePost(item._id || item.id)}
+                  onUserClick={handlePostUserClick}
+                />
+              );
+            })}
 
             {/* Users Results */}
             {(activeTab === 'all' || activeTab === 'users') && searchResults.users.map(renderUserItem)}
