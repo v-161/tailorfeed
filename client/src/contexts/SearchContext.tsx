@@ -1,11 +1,8 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useRef, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { aiService } from '../services/aiService';
 import { User, Post } from '../types'; // IMPORT FROM TYPES
-
-// REMOVE THESE LOCAL INTERFACES:
-// interface Post { ... }
-// interface User { ... }
+import { useDataContext } from './DataContext'; // ADD THIS IMPORT
 
 // Keep only SearchResult and other interfaces that aren't in your types file
 interface SearchResult {
@@ -57,15 +54,27 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
   const searchIdRef = useRef(0);
 
   const { currentUser } = useAuth();
+  const { userPreferences } = useDataContext(); // ADD THIS
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+  // 🎯 FIX: Auto-refresh suggested users when preferences change
+  useEffect(() => {
+    if (currentUser && userPreferences.length > 0) {
+      console.log('🔄 Preferences changed, refreshing suggested users...');
+      loadSuggestedUsers();
+      fetchTrendingData(); // Also refresh trending data
+    }
+  }, [userPreferences, currentUser]); // Add userPreferences dependency
 
   // Load AI suggested users based on preferences
   const loadSuggestedUsers = async () => {
     if (!currentUser) return;
     
     try {
+      console.log('🔄 Loading suggested users for preferences:', userPreferences);
       const suggestions = await aiService.getSuggestedUsers(currentUser._id);
       setSuggestedUsers(suggestions);
+      console.log('✅ Suggested users loaded:', suggestions.length);
     } catch (error) {
       console.error('Error loading suggested users:', error);
       setSuggestedUsers([]);
@@ -73,11 +82,11 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
   };
 
   // Load trending data and recent searches on mount
-  React.useEffect(() => {
+  useEffect(() => {
     fetchTrendingData();
     loadRecentSearches();
-    loadSuggestedUsers(); // ADD THIS LINE
-  }, [currentUser]); // ADD currentUser dependency
+    loadSuggestedUsers();
+  }, [currentUser]);
 
   const fetchTrendingData = async () => {
     try {
@@ -92,17 +101,24 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
       if (response.ok) {
         const data = await response.json();
         setTrendingTags(data.tags?.map((t: any) => t.name) || []);
-        setSuggestedUsers(data.suggestions || []); // Use real suggestions from API
+        
+        // 🎯 FIX: Use suggestedUsers from backend API
+        if (data.suggestedUsers && data.suggestedUsers.length > 0) {
+          setSuggestedUsers(data.suggestedUsers);
+          console.log('✅ Using backend suggested users:', data.suggestedUsers.length);
+        } else {
+          // Fallback to AI service
+          await loadSuggestedUsers();
+        }
       } else {
-        // Fallback - NO FAKE USERS
+        // Fallback
         setTrendingTags(['programming', 'react', 'travel', 'food', 'fitness', 'art', 'photography']);
-        setSuggestedUsers([]); // Empty array instead of fake users
+        await loadSuggestedUsers(); // Load from AI service as fallback
       }
     } catch (error) {
       console.error('Failed to fetch trending data:', error);
-      // Fallback - NO FAKE USERS
       setTrendingTags(['programming', 'react', 'travel', 'food', 'fitness', 'art', 'photography']);
-      setSuggestedUsers([]); // Empty array instead of fake users
+      await loadSuggestedUsers(); // Load from AI service as fallback
     }
   };
 
