@@ -19,14 +19,17 @@ router.post('/interaction', auth, async (req, res) => {
       aiPreference = new AIPreference({ userId });
     }
 
-    // ALSO UPDATE USER'S MAIN PREFERENCES WHEN INTERACTING
+    // 🎯 FIX: Get current user preferences to check what should be kept
+    const user = await User.findById(userId);
+    const currentUserPreferences = user?.preferences?.interests || [];
+
     if (postTags && Array.isArray(postTags)) {
       const weightMap = {
         'like': 2,
-        'unlike': -2,
         'comment': 3,
         'share': 4,
-        'view': 0.5
+        'view': 0.5,
+        'unlike': -3 // 🎯 STRONGER penalty for unlike
       };
 
       const weight = weightMap[interactionType] || 1;
@@ -42,10 +45,40 @@ router.post('/interaction', auth, async (req, res) => {
         currentAffinity.score += weight;
         currentAffinity.interactionCount += Math.abs(weight);
         currentAffinity.lastInteracted = new Date();
-        aiPreference.tagAffinity.set(tag, currentAffinity);
+        
+        // 🎯 FIX: Only keep the tag if it's in user preferences OR has positive engagement
+        if (currentUserPreferences.includes(tag) || currentAffinity.score > 0) {
+          aiPreference.tagAffinity.set(tag, currentAffinity);
+        } else {
+          // Remove tag if not in preferences and score is low/negative
+          aiPreference.tagAffinity.delete(tag);
+        }
       });
 
-      // ALSO UPDATE USER'S MAIN PREFERENCES
+      // 🎯 FIX: Handle unlike specifically - remove from user preferences too
+      if (interactionType === 'unlike') {
+        const user = await User.findById(userId);
+        if (user && user.preferences) {
+          // Remove the unliked post's tags from user preferences
+          postTags.forEach(tag => {
+            if (user.preferences.interests.includes(tag)) {
+              user.preferences.interests = user.preferences.interests.filter(t => t !== tag);
+              console.log('🗑️ Removed tag from user preferences due to unlike:', tag);
+            }
+          });
+          await user.save();
+        }
+        
+        // Also clean up AI preferences
+        for (let [tag, affinity] of aiPreference.tagAffinity) {
+          if (affinity.score <= -2) { // 🎯 Remove if strongly disliked
+            aiPreference.tagAffinity.delete(tag);
+            console.log('🗑️ Removed tag from AI preferences due to low score:', tag);
+          }
+        }
+      }
+
+      // ALSO UPDATE USER'S MAIN PREFERENCES FOR POSITIVE ENGAGEMENT
       if (interactionType === 'like' || interactionType === 'comment') {
         const user = await User.findById(userId);
         if (user && !user.preferences) {
@@ -55,19 +88,11 @@ router.post('/interaction', auth, async (req, res) => {
         postTags.forEach(tag => {
           if (user.preferences && !user.preferences.interests.includes(tag)) {
             user.preferences.interests.push(tag);
+            console.log('✅ Added tag to user preferences from interaction:', tag);
           }
         });
         
         await user.save();
-        console.log('✅ Updated user preferences from interaction:', postTags);
-      }
-
-      if (interactionType === 'unlike') {
-        for (let [tag, affinity] of aiPreference.tagAffinity) {
-          if (affinity.score <= 0) {
-            aiPreference.tagAffinity.delete(tag);
-          }
-        }
       }
     }
 
@@ -293,7 +318,7 @@ router.get('/interests', auth, async (req, res) => {
 
     const aiPreference = await AIPreference.findOne({ userId });
 
-    // If no AI preferences, return user's current preferences
+    // If no AI preferences, return ONLY user's current preferences
     if (!aiPreference) {
       return res.json({
         success: true,
@@ -307,8 +332,9 @@ router.get('/interests', auth, async (req, res) => {
       });
     }
 
-    // 🎯 FIX: Combine AI interests with user's CURRENT preferences
+    // 🎯 CRITICAL FIX: Only return AI interests that are in CURRENT user preferences
     let interests = Array.from(aiPreference.tagAffinity.entries())
+      .filter(([tag, data]) => currentUserPreferences.includes(tag)) // 🎯 ONLY include tags in current preferences
       .sort(([,a], [,b]) => b.score - a.score)
       .map(([tag, data]) => ({
         tag,
@@ -318,25 +344,21 @@ router.get('/interests', auth, async (req, res) => {
         source: 'ai_analysis'
       }));
 
-    // 🎯 FIX: Add any user preferences that aren't in AI interests
-    currentUserPreferences.forEach(tag => {
-      if (!interests.find(interest => interest.tag === tag)) {
-        interests.push({
-          tag,
-          score: 3, // Medium score for manual preferences
-          interactionCount: 1,
-          category: categorizeTag(tag),
-          source: 'manual_addition'
-        });
-      }
-    });
+    console.log('🎯 Filtered AI interests by current preferences:', interests.map(i => i.tag));
 
-    // 🎯 FIX: Remove any interests that user has manually removed
-    interests = interests.filter(interest => 
-      currentUserPreferences.includes(interest.tag) || interest.interactionCount > 1
-    );
+    // 🎯 FIX: If user has preferences but no matching AI data, create basic entries
+    if (currentUserPreferences.length > 0 && interests.length === 0) {
+      console.log('🔄 Creating basic interests from user preferences');
+      interests = currentUserPreferences.map(tag => ({
+        tag,
+        score: 5,
+        interactionCount: 1,
+        category: categorizeTag(tag),
+        source: 'user_preferences'
+      }));
+    }
 
-    console.log('🎯 Final combined interests:', interests.map(i => i.tag));
+    console.log('🎯 Final interests to return:', interests.map(i => i.tag));
 
     res.json({
       success: true,
