@@ -94,15 +94,25 @@ const Post: React.FC<PostProps> = ({ post, onPostInteraction }) => { // NEW: Add
         });
 
         try {
-            // Track with AI first (don't wait for it)
-            aiService.likePostWithAI(post._id, post.tags || []);
-            
-            // Then do the actual like
+            // ✅ FIRST: Do the actual like API call (MOST IMPORTANT)
             await likePost(post._id, userId, isLiked);
             
             console.log('✅ Like action completed successfully');
             
-            // 🔥 NEW: Trigger dashboard refresh
+            // ✅ THEN: Track with AI (fire and forget - don't await or block)
+            try {
+                if (isLiked) {
+                    aiService.unlikePostWithAI(post._id, post.tags || []);
+                } else {
+                    aiService.likePostWithAI(post._id, post.tags || []);
+                }
+                console.log('✅ AI interaction recorded');
+            } catch (aiError) {
+                console.error('❌ AI tracking failed, but like was successful:', aiError);
+                // Don't throw error - AI failure shouldn't affect like operation
+            }
+            
+            // ✅ FINALLY: Trigger dashboard refresh
             if (onPostInteraction) {
                 console.log('🔄 Notifying dashboard of interaction');
                 onPostInteraction();
