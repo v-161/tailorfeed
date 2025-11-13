@@ -110,30 +110,57 @@ router.post('/', auth, async (req, res) => {
 });
 
 // @route   PUT /api/posts/:id/like
-// @desc    Like/unlike a post
+// @desc    Like/unlike a post - ✅ FIXED VERSION
 router.put('/:id/like', auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, action } = req.body;
+    const userId = req.user._id.toString(); // ✅ Get from authenticated user
+
+    console.log('🔄 Like/Unlike request:', { 
+      postId: id, 
+      userId: userId,
+      username: req.user.username 
+    });
 
     const post = await Post.findById(id).populate('userId', 'username profilePic');
     if (!post) {
+      console.log('❌ Post not found:', id);
       return res.status(404).json({
         success: false,
         message: 'Post not found'
       });
     }
 
-    if (action === 'like') {
-      if (!post.likes.includes(userId)) {
-        post.likes.push(userId);
-        
-        // CREATE NOTIFICATION FOR POST OWNER (only if not liking own post)
-        if (post.userId._id.toString() !== userId) {
+    // ✅ Determine action based on current state (server-side logic)
+    const isCurrentlyLiked = post.likes.some(likeId => 
+      likeId.toString() === userId
+    );
+
+    console.log('📊 Current like status:', {
+      postId: post._id,
+      currentLikes: post.likes.length,
+      isCurrentlyLiked: isCurrentlyLiked
+    });
+
+    let action;
+    if (isCurrentlyLiked) {
+      // Unlike the post
+      post.likes = post.likes.filter(likeId => likeId.toString() !== userId);
+      action = 'unlike';
+      console.log('✅ Post unliked by user:', userId);
+    } else {
+      // Like the post
+      post.likes.push(userId);
+      action = 'like';
+      console.log('✅ Post liked by user:', userId);
+
+      // CREATE NOTIFICATION FOR POST OWNER (only if not liking own post)
+      if (post.userId._id.toString() !== userId) {
+        try {
           const notification = new Notification({
             userId: post.userId._id,
             type: 'like',
-            message: 'liked your post',
+            message: `${req.user.username} liked your post`,
             username: req.user.username,
             profilePicture: req.user.profilePic,
             postId: post._id,
@@ -143,23 +170,30 @@ router.put('/:id/like', auth, async (req, res) => {
           });
           await notification.save();
           console.log('✅ Like notification created for user:', post.userId._id);
+        } catch (notifError) {
+          console.error('❌ Notification creation failed:', notifError);
+          // Don't fail the like operation if notification fails
         }
       }
-    } else if (action === 'unlike') {
-      post.likes = post.likes.filter(likeId => likeId.toString() !== userId);
     }
 
     await post.save();
+    console.log('💾 Post saved successfully, new likes count:', post.likes.length);
 
     res.json({
       success: true,
-      message: `Post ${action === 'like' ? 'liked' : 'unliked'} successfully`,
+      message: `Post ${action}d successfully`,
       likesCount: post.likes.length,
-      likes: post.likes
+      likes: post.likes,
+      isLiked: action === 'like' // ✅ Send back current state
     });
 
   } catch (error) {
-    console.error('Like post error:', error);
+    console.error('❌ Like post error:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     res.status(500).json({
       success: false,
       message: 'Server error updating like'
